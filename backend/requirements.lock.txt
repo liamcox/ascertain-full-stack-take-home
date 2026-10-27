@@ -1,0 +1,19 @@
+# Transitive production dependency constraints for Python 3.12.
+annotated-types==0.8.0
+anyio==4.15.1
+click==8.5.0
+dnspython==2.9.0
+email-validator==2.2.0
+fastapi==0.115.12
+greenlet==3.2.1
+h11==0.16.0
+idna==3.20
+psycopg==3.2.6
+psycopg-binary==3.2.6
+pydantic==2.11.3
+pydantic-core==2.33.1
+SQLAlchemy==2.0.40
+starlette==0.46.2
+typing-extensions==4.16.0
+typing-inspection==0.4.4
+uvicorn==0.34.2
