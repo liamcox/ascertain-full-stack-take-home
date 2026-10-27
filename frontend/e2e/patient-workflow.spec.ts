@@ -23,7 +23,8 @@ function apiResponse(page: Page, method: string, path: string) {
 }
 
 async function expectStatus(response: Response, status: number) {
-  expect(response.status(), `${response.request().method()} ${response.url()}`).toBe(status);
+  const details = response.status() === status ? '' : `: ${await response.text()}`;
+  expect(response.status(), `${response.request().method()} ${response.url()}${details}`).toBe(status);
 }
 
 test('patient forms, persisted notes, summaries, and deletion work together', async ({
@@ -52,7 +53,7 @@ test('patient forms, persisted notes, summaries, and deletion work together', as
     await createForm.getByLabel('First name', { exact: false }).fill(firstName);
     await createForm.getByLabel('Last name', { exact: false }).fill(lastName);
     await createForm.getByLabel('Date of birth', { exact: false }).fill('1985-04-12');
-    await createForm.getByLabel('Email address', { exact: true }).fill('browser@example.test');
+    await createForm.getByLabel('Email address', { exact: true }).fill('browser@example.com');
     await createForm.getByLabel('Conditions', { exact: true }).fill('Exercise-induced asthma');
     await createForm.getByLabel('Allergies', { exact: true }).fill('Latex');
     const createdResponse = apiResponse(page, 'POST', '/api/patients');
