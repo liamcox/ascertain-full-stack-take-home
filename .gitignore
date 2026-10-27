@@ -18,5 +18,7 @@ coverage/
 htmlcov/
 sites/
 artifacts/
+playwright-report/
+test-results/
 *.tar.gz
 
