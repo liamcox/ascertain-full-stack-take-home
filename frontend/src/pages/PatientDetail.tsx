@@ -165,6 +165,7 @@ export function PatientDetailPage() {
     onSuccess: () => {
       setNoteToDelete(null);
       void queryClient.invalidateQueries({ queryKey: ['notes', id] });
+      void queryClient.invalidateQueries({ queryKey: ['patient', id] });
       resetSummary();
       notifications.show({
         title: 'Note deleted',
