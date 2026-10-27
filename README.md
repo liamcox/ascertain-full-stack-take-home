@@ -128,9 +128,17 @@ npm run typecheck
 npm run build
 ```
 
+With the seeded Compose stack running, reproduce the full-stack smoke check from the repository root:
+
+```sh
+python3 scripts/smoke_test.py --api-base http://127.0.0.1:3000/api --frontend-url http://127.0.0.1:3000
+```
+
+This checks the frontend API proxy, pagination, patient CRUD and persistence, timestamped notes, summaries, and root/detail SPA HTML. It modifies only a disposable patient fixture it creates and removes that fixture during cleanup; existing patient records are only read.
+
 **Verified:** all 31 API tests pass against both isolated SQLite and native PostgreSQL 17. Coverage includes CRUD persistence, validation, search/filter/sort/pagination, note scoping and cascading deletion, summaries, dashboard counts, CORS, and seed idempotency. Frontend build, lint, and formatting checks pass. The live API is healthy, contains the 120 seeded profiles, and passes API smoke checks.
 
-Docker is unavailable in the implementation environment, so Compose has not been run locally. The GitHub Actions verification workflow includes a Docker Compose check; its first result and hosted browser end-to-end verification are pending.
+The [GitHub Actions verification run](https://github.com/liamcox/ascertain-full-stack-take-home/actions/runs/40591497255) passes PostgreSQL 17 API tests, frontend checks, and a real Docker Compose build/start plus a smoke test through nginx’s API proxy. Docker is unavailable on the development machine, so the container check runs on GitHub’s Ubuntu runner. Hosted browser checks pass for search, filters, sorting, pagination, profiles, summaries, direct-route reload, confirmation dialogs, 404 states, and mobile layouts at 390px.
 
 Python direct and transitive dependencies are constrained by the committed requirements lock files; npm uses the committed `package-lock.json`.
 
