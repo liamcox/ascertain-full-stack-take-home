@@ -136,9 +136,25 @@ python3 scripts/smoke_test.py --api-base http://127.0.0.1:3000/api --frontend-ur
 
 This checks the frontend API proxy, pagination, patient CRUD and persistence, timestamped notes, summaries, and root/detail SPA HTML. It modifies only a disposable patient fixture it creates and removes that fixture during cleanup; existing patient records are only read.
 
-**Verified:** all 31 API tests pass against both isolated SQLite and native PostgreSQL 17. Coverage includes CRUD persistence, validation, search/filter/sort/pagination, note scoping and cascading deletion, summaries, dashboard counts, CORS, and seed idempotency. Frontend build, lint, and formatting checks pass. The live API is healthy, contains the 120 seeded profiles, and passes API smoke checks.
+The committed verification workflow checks 31 API tests against PostgreSQL 17 and repeats the same suite on isolated SQLite databases. It runs frontend lint, formatting, typechecking, a production build, and `npm audit --audit-level=moderate`. The updated lock file currently reports zero known vulnerabilities.
 
-The [GitHub Actions verification run](https://github.com/liamcox/ascertain-full-stack-take-home/actions/runs/40591497255) passes PostgreSQL 17 API tests, frontend checks, and a real Docker Compose build/start plus a smoke test through nginx’s API proxy. Docker is unavailable on the development machine, so the container check runs on GitHub’s Ubuntu runner. Hosted browser checks pass for search, filters, sorting, pagination, profiles, summaries, direct-route reload, confirmation dialogs, 404 states, and mobile layouts at 390px.
+The Compose job builds and starts the three services, runs the HTTP smoke check through nginx, and then runs Chromium against the actual React application. The two browser tests cover:
+
+- Required form validation; create → edit → reload → timestamped note → summary → delete note → regenerate → delete patient → missing-record page.
+- The patient-query refresh after note deletion, plus loaded dashboard, directory, and detail layouts at 390px. Table pages must have no document overflow and must support keyboard scrolling within their table region.
+
+To reproduce browser checks against the running local Compose stack:
+
+```sh
+cd frontend
+npm ci
+npx playwright install chromium
+npm run test:e2e
+```
+
+Browser tests accept only loopback origins and create/clean up their own patient. CI uploads the HTML report and failure evidence as the `browser-verification` artifact. The HTTP smoke check verifies API responses and SPA HTML; it does not operate React forms. Docker is unavailable on the development machine, so the complete container and Chromium check runs on GitHub's Ubuntu runner.
+
+The [verified CI run](https://github.com/liamcox/ascertain-full-stack-take-home/actions/runs/40598418999) passes all three jobs, including both browser tests. See the [reviewer walkthrough](docs/reviewer-walkthrough.md) for a short manual journey. Hosted browser checks cover read workflows; mutation evidence comes from the isolated Compose browser suite. Mobile containment was rechecked after patient rows loaded.
 
 Python direct and transitive dependencies are constrained by the committed requirements lock files; npm uses the committed `package-lock.json`.
 
