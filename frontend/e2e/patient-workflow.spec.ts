@@ -24,7 +24,9 @@ function apiResponse(page: Page, method: string, path: string) {
 
 async function expectStatus(response: Response, status: number) {
   const details = response.status() === status ? '' : `: ${await response.text()}`;
-  expect(response.status(), `${response.request().method()} ${response.url()}${details}`).toBe(status);
+  expect(response.status(), `${response.request().method()} ${response.url()}${details}`).toBe(
+    status,
+  );
 }
 
 test('patient forms, persisted notes, summaries, and deletion work together', async ({
