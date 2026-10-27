@@ -1,2 +1,151 @@
-# ascertain-full-stack-take-home
-Patient management dashboard built with React, TypeScript, FastAPI, and PostgreSQL.
+# Ascertain Care
+
+A full-stack patient management demo built with React, TypeScript, FastAPI, and PostgreSQL. The interface supports a dashboard, patient records, timestamped notes, and deterministic patient summaries.
+
+**Demo:** [Ascertain Care](https://ascertain-care-liam-2026.liamcox190.chatgpt.site). **Public repository:** [liamcox/ascertain-full-stack-take-home](https://github.com/liamcox/ascertain-full-stack-take-home). **Live API:** [interactive documentation](https://ascertain-care-liam-2026-api.onrender.com/docs).
+
+The deployed API uses Render's free Python service and PostgreSQL 17 on Neon's Free plan. After inactivity, allow about a minute for the backend to wake before retrying a failed request. [Render free service behavior](https://render.com/docs/free#spinning-down-on-idle).
+
+All seeded records are fictional. This take-home intentionally has no authentication or authorization; use synthetic data only. Anyone who can reach the demo API can read or change its records.
+
+## Run locally
+
+Install Docker with the Compose plugin, then run from the repository root:
+
+```sh
+cp .env.example .env
+docker compose up --build
+```
+
+Open [the app](http://localhost:3000) and [interactive API documentation](http://localhost:8000/docs). The API health endpoint is [localhost:8000/health](http://localhost:8000/health).
+
+Compose starts three services: the React build served by nginx, FastAPI, and PostgreSQL. PostgreSQL stays on the internal Compose network. A named volume preserves records between restarts. The backend creates the schema and seeds 120 fictional patients on first startup. A persisted seed marker prevents duplication and prevents deleted patients from reappearing on restart. The initial PostgreSQL schema is also provided in [`backend/sql/001_initial.sql`](backend/sql/001_initial.sql) for inspection; startup applies the equivalent SQLAlchemy metadata automatically.
+
+Stop with `docker compose down`. To deliberately discard **all local patient data** and reseed on the next start, use `docker compose down --volumes`.
+
+### Develop without Docker
+
+Use Python 3.12+, Node.js 22+, and a running PostgreSQL instance. Create a database and set `DATABASE_URL` to its connection string in the backend shell:
+
+```sh
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements-dev.txt
+export DATABASE_URL='postgresql+psycopg://ascertain:ascertain_dev@localhost:5432/ascertain'
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+The API initializes and seeds the database automatically. In a second shell:
+
+```sh
+cd frontend
+npm ci
+npm run dev
+```
+
+Open [localhost:5173](http://localhost:5173). Vite proxies `/api` to the local FastAPI process and removes that prefix. The backend itself exposes `/patients`, not `/api/patients`.
+
+## Workflows
+
+| Route | Behavior |
+| --- | --- |
+| `/` | Dashboard with status counts and recent visits. |
+| `/patients` | Searchable patient directory, status filters, sorting, and server-side pagination. |
+| `/patients/:id` | View a profile, manage notes, generate a summary, edit, or delete the record. |
+| Other paths | Missing-page state with a route back to the app. |
+
+Use **Add patient** on the dashboard or directory to open the creation form; saving opens the new profile. Use **Edit patient** on a profile to open its edit form. Notes are added inline with a date/time picker defaulting to now.
+
+The interface includes loading, empty, failed-request, validation, and missing-record states. Destructive actions require confirmation. Successful mutations refresh the relevant directory, detail, notes, and dashboard queries.
+
+## Data model and rules
+
+- Patients have UUIDs, first/last name, date of birth, status, optional contact/address information, blood type, conditions, allergies, and last visit date. Age is calculated from date of birth rather than stored.
+- Status values are `active`, `follow_up`, and `inactive`, displayed as Active, Needs follow-up, and Inactive.
+- Names must be nonblank. Birth and last visit dates cannot be in the future; a visit cannot precede birth. Optional emails must be valid, and blood type is restricted to the eight standard ABO/Rh values.
+- Conditions and allergies are trimmed, deduplicated lists. An empty list means nothing was recorded, not a confirmed absence.
+- Notes belong to one patient, contain nonblank text, and have timestamps normalized to UTC. Notes are returned newest first. Deleting a patient also deletes its notes.
+- Summaries are generated on request as a profile paragraph followed by a chronological narrative quoting the saved notes. They preserve recorded content and identify missing fields. They do not call an LLM or make clinical inferences, diagnoses, or recommendations.
+
+The seed dataset includes all statuses, missing optional fields, and patients with zero, one, or multiple notes.
+
+## API
+
+FastAPI publishes the complete request/response schemas at `/docs` and `/openapi.json`.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/health` | Application and database readiness. |
+| `GET` | `/dashboard` | Counts by status and the five latest recorded visits. |
+| `GET` | `/patients` | Search, filter, sort, and paginate patients. |
+| `POST` | `/patients` | Create a patient (`201`). |
+| `GET` | `/patients/{id}` | Retrieve a patient. |
+| `PUT` | `/patients/{id}` | Replace editable patient fields. |
+| `DELETE` | `/patients/{id}` | Delete a patient and associated notes (`204`). |
+| `GET`, `POST` | `/patients/{id}/notes` | List notes or add a timestamped note (`201`). |
+| `DELETE` | `/patients/{id}/notes/{note_id}` | Delete a note belonging to the specified patient (`204`). |
+| `GET` | `/patients/{id}/summary` | Generate a current template summary. |
+
+Directory parameters: `search`, `status`, `page` (1+), `page_size` (1–100; default 12), `sort_by` (`name`, `age`, `last_visit`, or `status`), and `sort_order` (`asc` or `desc`). Search matches full name, email, phone, and recorded conditions, case-insensitively. Results include `items`, `total`, `page`, `page_size`, and `total_pages`; stable ID ordering breaks ties. Missing patients/notes return `404`; invalid request data returns `422`.
+
+## Architecture and tradeoffs
+
+```text
+React + TypeScript + Mantine
+  └─ TanStack Query / fetch
+       └─ FastAPI + Pydantic
+            └─ SQLAlchemy + psycopg
+                 └─ PostgreSQL
+```
+
+React Router handles page navigation. React Hook Form and Zod provide immediate form feedback; Pydantic independently validates API input. TanStack Query owns remote data, caching, loading/error states, and invalidation. Component state is sufficient for transient UI, so Redux would add little value here.
+
+Pagination and filtering run in SQL rather than downloading every profile. Small pages make virtualization unnecessary for this dataset. Database indexes cover names, status, visit dates, and note relationships. Search uses case-insensitive substring matching; a larger dataset would justify measured query tuning and trigram/full-text indexes.
+
+SQLAlchemy models keep persistence separate from API schemas. Schema creation uses `create_all` to keep a fresh take-home install simple. A production application would need versioned migrations, authentication, access control, audit history, and operational monitoring before holding real patient information.
+
+The two focused stretch areas are server-side filtering/sorting and API tests. The four-hour scope prioritizes complete workflows, validation, persistence, and reproducible setup.
+
+## Checks
+
+Run the backend suite from `backend/`:
+
+```sh
+python -m pip install -r requirements-dev.txt
+pytest
+```
+
+The suite defaults to an isolated SQLite database. To exercise PostgreSQL, set `TEST_DATABASE_URL` to a test database connection string before running `pytest`. Each test creates and removes its own unique schema; the database role must have schema-creation permission.
+
+Run frontend checks from `frontend/`:
+
+```sh
+npm ci
+npm run lint
+npm run format:check
+npm run typecheck
+npm run build
+```
+
+**Verified:** all 31 API tests pass against both isolated SQLite and native PostgreSQL 17. Coverage includes CRUD persistence, validation, search/filter/sort/pagination, note scoping and cascading deletion, summaries, dashboard counts, CORS, and seed idempotency. Frontend build, lint, and formatting checks pass. The live API is healthy, contains the 120 seeded profiles, and passes API smoke checks.
+
+Docker is unavailable in the implementation environment, so Compose has not been run locally. The GitHub Actions verification workflow includes a Docker Compose check; its first result and hosted browser end-to-end verification are pending.
+
+Python direct and transitive dependencies are constrained by the committed requirements lock files; npm uses the committed `package-lock.json`.
+
+## Configuration and deployment
+
+| Variable | Used by | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | Backend | PostgreSQL connection string. `postgres://` and `postgresql://` are normalized to the psycopg SQLAlchemy driver. |
+| `SEED_DATA` | Backend | `true` by default; seed a fresh database once. Set `false` to start without demo records. |
+| `CORS_ORIGINS` | Backend | Comma-separated exact frontend origins, without paths or trailing slashes. |
+| `PORT` | Backend | Listening port; defaults to `8000`. |
+| `VITE_API_URL` | Frontend build | `/api` for local proxying, or the hosted API's HTTPS origin. Never put credentials in this value. |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Compose | Local database initialization settings from `.env`. |
+| `FRONTEND_PORT`, `BACKEND_PORT` | Compose | Published local ports; default to `3000` and `8000`. |
+
+The deployment uses ChatGPT Sites for the compiled UI, Render for FastAPI, and Neon for PostgreSQL. Production `VITE_API_URL` is `https://ascertain-care-liam-2026-api.onrender.com`; there is no mocked data mode. It is public build-time configuration; database credentials belong only in backend environment variables. The hosted API uses native Python 3.12.12; Docker Compose remains the local delivery path.
+
+See [the deployment guide](docs/deployment.md) for repository publication, hosting setup, and end-to-end checks.
