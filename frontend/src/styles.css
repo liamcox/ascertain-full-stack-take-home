@@ -11,7 +11,7 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   --ink: #263b37;
-  --muted: #7b8781;
+  --muted: #5f7068;
   --teal: #176557;
   --line: #e9eeeb;
   --mantine-font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -405,7 +405,7 @@ button {
   gap: 8px;
   font-size: 12px;
   font-weight: 500;
-  color: #7c8d80;
+  color: #5f7068;
   position: relative;
   z-index: 1;
 }
@@ -506,7 +506,7 @@ button {
 .panel-heading .mantine-Button-root {
   font-size: 11px;
   font-weight: 500;
-  color: #798f7c;
+  color: #536d60;
   padding: 0;
   height: auto;
   white-space: nowrap;
@@ -518,9 +518,23 @@ button {
   line-height: 1.5;
 }
 .table-scroll {
+  position: relative;
+  max-width: 100%;
   overflow-x: auto;
   scrollbar-color: #d1ddd4 #f6f8f5;
   scrollbar-width: thin;
+}
+.table-scroll:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: -2px;
+}
+.table-scroll-hint {
+  display: none;
+  margin: 0;
+  padding: 10px 20px;
+  color: var(--muted);
+  font-size: 12px;
+  border-bottom: 1px solid var(--line);
 }
 .patient-table {
   width: 100%;
@@ -535,7 +549,7 @@ button {
 .patient-table th {
   font-size: 13px;
   font-weight: 550;
-  color: #7c8b7e;
+  color: #5f7068;
   text-align: left;
   height: 40px;
   padding: 0 20px;
@@ -547,7 +561,7 @@ button {
   border-bottom: 1px solid #f0f3ef;
   padding: 16px 20px;
   font-size: 12px;
-  color: #708375;
+  color: #52685b;
 }
 .patient-table tr:last-child td {
   border-bottom: 0;
@@ -609,20 +623,20 @@ button {
   background: currentColor;
 }
 .status-active {
-  color: #5d8f6a;
+  color: #3e6f49;
   background: #edf5e9;
 }
 .status-follow_up {
-  color: #bb965d;
+  color: #806030;
   background: #fbf3e6;
 }
 .status-inactive {
-  color: #99a49b;
+  color: #54675c;
   background: #f2f4f0;
 }
 .patient-table .date-cell {
   font-size: 13px;
-  color: #7c8d80;
+  color: #5f7068;
 }
 .patient-table .age-cell {
   font-size: 13px;
@@ -634,7 +648,7 @@ button {
 }
 .patient-table .contact-cell {
   font-size: 11px;
-  color: #7d8f7a;
+  color: #5f7068;
 }
 .contact-cell a:hover {
   text-decoration: underline;
@@ -1444,8 +1458,8 @@ button {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 10px;
-  color: #b1c09f;
+  font-size: 12px;
+  color: #5f7068;
   margin-top: 13px;
 }
 .record-updated {
@@ -1453,8 +1467,8 @@ button {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  font-size: 10px;
-  color: #b0bda3;
+  font-size: 12px;
+  color: #5f7068;
   margin-top: -6px;
 }
 .modal-heading {
@@ -1774,6 +1788,9 @@ button {
   }
 }
 @media (max-width: 960px) {
+  .table-scroll-hint {
+    display: block;
+  }
   .dashboard-grid {
     grid-template-columns: 1fr;
   }
@@ -2207,10 +2224,10 @@ button {
 /* Preserve comfortable reading contrast for the details used most often. */
 .page-heading p,
 .directory-top p {
-  color: #758371;
+  color: #5f7068;
 }
 .metric-card p {
-  color: #819077;
+  color: #5f7068;
 }
 .panel h2 {
   font-size: 16px;
@@ -2219,14 +2236,14 @@ button {
   font-size: 15px;
 }
 .patient-link small {
-  color: #82917a;
+  color: #5f7068;
 }
 .patient-table .contact-cell {
   font-size: 12px;
 }
 .contact-cell small {
-  font-size: 10px;
-  color: #8d9b85;
+  font-size: 12px;
+  color: #5f7068;
 }
 .status-panel .eyebrow {
   color: #819174;
@@ -2238,10 +2255,10 @@ button {
   color: #7b8c66;
 }
 .detail-meta {
-  color: #7b8f6a;
+  color: #5f7068;
 }
 .info-grid dt {
-  color: #7a8f68;
+  color: #5f7068;
 }
 .info-grid dd {
   font-size: 13px;
@@ -2249,36 +2266,39 @@ button {
 }
 .note-item p {
   font-size: 13px;
-  color: #6d835a;
+  color: #536546;
 }
 .note-top time {
-  color: #6d8559;
+  color: #536546;
 }
 .note-author {
-  color: #8c9e79;
+  font-size: 12px;
+  color: #5f7068;
 }
 .note-time {
-  color: #94a583;
+  font-size: 12px;
+  color: #5f7068;
 }
 .medical-group h3,
 .medical-stats span {
   color: #7c9269;
 }
 .medical-empty {
-  color: #8d9e79;
+  color: #5f7068;
 }
 .summary-description {
-  color: #80946a;
+  color: #5f7068;
 }
 .summary-output {
   font-size: 12px;
   color: #627d4b;
 }
 .summary-disclaimer {
-  color: #8c9f75;
+  font-size: 12px;
+  color: #5f7068;
 }
 .form-intro {
-  color: #7a8e67;
+  color: #5f7068;
 }
 .form-grid .mantine-InputWrapper-label {
   color: #6e8759;
@@ -2288,7 +2308,8 @@ button {
   color: #556e44;
 }
 .form-grid .mantine-InputWrapper-description {
-  color: #8c9e76;
+  font-size: 12px;
+  color: #5f7068;
 }
 @media (max-width: 580px) {
   .metrics-grid {
