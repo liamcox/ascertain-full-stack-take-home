@@ -9,6 +9,7 @@ import {
   Users,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useId } from 'react';
 import type { ReactNode } from 'react';
 import type { Patient, PatientStatus } from '../api';
 import {
@@ -157,6 +158,7 @@ export function PatientTable({
   onSort?: (field: string) => void;
   compact?: boolean;
 }) {
+  const scrollHintId = useId();
   function heading(label: string, field: string) {
     if (!onSort) return label;
     const Icon =
@@ -173,101 +175,120 @@ export function PatientTable({
     );
   }
   return (
-    <div className="table-scroll">
-      <table className="patient-table">
-        <thead>
-          <tr>
-            <th
-              aria-sort={
-                sortBy === 'name' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : undefined
-              }
-            >
-              {heading('Patient', 'name')}
-            </th>
-            {!compact && (
+    <>
+      <p className="table-scroll-hint" id={scrollHintId}>
+        Scroll horizontally or use the arrow keys to see all columns.
+      </p>
+      <div
+        className="table-scroll"
+        role="region"
+        aria-label={compact ? 'Recent patient visits' : 'Patient directory'}
+        aria-describedby={scrollHintId}
+        tabIndex={0}
+      >
+        <table className="patient-table">
+          <thead>
+            <tr>
               <th
                 aria-sort={
-                  sortBy === 'age' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : undefined
+                  sortBy === 'name' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : undefined
                 }
               >
-                {heading('Age', 'age')}
+                {heading('Patient', 'name')}
               </th>
-            )}
-            <th
-              aria-sort={
-                sortBy === 'status' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : undefined
-              }
-            >
-              {heading('Status', 'status')}
-            </th>
-            <th
-              aria-sort={
-                sortBy === 'last_visit'
-                  ? sortOrder === 'asc'
-                    ? 'ascending'
-                    : 'descending'
-                  : undefined
-              }
-            >
-              {heading('Last visit', 'last_visit')}
-            </th>
-            {!compact && <th>Contact</th>}
-            <th>
-              <span className="sr-only">View patient</span>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {patients.map((patient) => (
-            <tr key={patient.id}>
-              <td>
-                <Link to={`/patients/${patient.id}`} className="patient-link">
-                  <PatientAvatar patient={patient} />
-                  <span>
-                    <strong>{fullName(patient)}</strong>
-                    <small>
-                      {compact
-                        ? `${patient.age} years old`
-                        : `ID ${patient.id.slice(0, 8).toUpperCase()}`}
-                    </small>
-                  </span>
-                </Link>
-              </td>
               {!compact && (
-                <td className="age-cell">
-                  {patient.age}
-                  <span> yrs</span>
-                </td>
-              )}
-              <td>
-                <StatusBadge status={patient.status} />
-              </td>
-              <td className="date-cell">{formatDate(patient.last_visit)}</td>
-              {!compact && (
-                <td className="contact-cell">
-                  {patient.email ? (
-                    <a href={`mailto:${patient.email}`}>{patient.email}</a>
-                  ) : (
-                    <span className="muted">—</span>
-                  )}
-                  <small>{patient.phone || 'No phone recorded'}</small>
-                </td>
-              )}
-              <td className="row-action">
-                <ActionIcon
-                  component={Link}
-                  to={`/patients/${patient.id}`}
-                  variant="subtle"
-                  color="gray"
-                  aria-label={`View ${fullName(patient)}`}
+                <th
+                  aria-sort={
+                    sortBy === 'age'
+                      ? sortOrder === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : undefined
+                  }
                 >
-                  <ArrowRight size={17} />
-                </ActionIcon>
-              </td>
+                  {heading('Age', 'age')}
+                </th>
+              )}
+              <th
+                aria-sort={
+                  sortBy === 'status'
+                    ? sortOrder === 'asc'
+                      ? 'ascending'
+                      : 'descending'
+                    : undefined
+                }
+              >
+                {heading('Status', 'status')}
+              </th>
+              <th
+                aria-sort={
+                  sortBy === 'last_visit'
+                    ? sortOrder === 'asc'
+                      ? 'ascending'
+                      : 'descending'
+                    : undefined
+                }
+              >
+                {heading('Last visit', 'last_visit')}
+              </th>
+              {!compact && <th>Contact</th>}
+              <th>
+                <span className="sr-only">View patient</span>
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {patients.map((patient) => (
+              <tr key={patient.id}>
+                <td>
+                  <Link to={`/patients/${patient.id}`} className="patient-link">
+                    <PatientAvatar patient={patient} />
+                    <span>
+                      <strong>{fullName(patient)}</strong>
+                      <small>
+                        {compact
+                          ? `${patient.age} years old`
+                          : `ID ${patient.id.slice(0, 8).toUpperCase()}`}
+                      </small>
+                    </span>
+                  </Link>
+                </td>
+                {!compact && (
+                  <td className="age-cell">
+                    {patient.age}
+                    <span> yrs</span>
+                  </td>
+                )}
+                <td>
+                  <StatusBadge status={patient.status} />
+                </td>
+                <td className="date-cell">{formatDate(patient.last_visit)}</td>
+                {!compact && (
+                  <td className="contact-cell">
+                    {patient.email ? (
+                      <a href={`mailto:${patient.email}`}>{patient.email}</a>
+                    ) : (
+                      <span className="muted">—</span>
+                    )}
+                    <small>{patient.phone || 'No phone recorded'}</small>
+                  </td>
+                )}
+                <td className="row-action">
+                  <ActionIcon
+                    component={Link}
+                    to={`/patients/${patient.id}`}
+                    variant="subtle"
+                    color="gray"
+                    aria-label={`View ${fullName(patient)}`}
+                  >
+                    <ArrowRight size={17} />
+                  </ActionIcon>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
