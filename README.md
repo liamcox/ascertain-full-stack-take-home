@@ -19,7 +19,7 @@ docker compose up --build
 
 Open [the app](http://localhost:3000) and [interactive API documentation](http://localhost:8000/docs). The API health endpoint is [localhost:8000/health](http://localhost:8000/health).
 
-Compose starts three services: the React build served by nginx, FastAPI, and PostgreSQL. PostgreSQL stays on the internal Compose network. A named volume preserves records between restarts. The backend creates the schema and seeds 120 fictional patients on first startup. A persisted seed marker prevents duplication and prevents deleted patients from reappearing on restart. The initial PostgreSQL schema is also provided in [`backend/sql/001_initial.sql`](backend/sql/001_initial.sql) for inspection; startup applies the equivalent SQLAlchemy metadata automatically.
+Compose starts three services: the React build served by nginx, FastAPI, and PostgreSQL. PostgreSQL stays on the internal Compose network. A named volume preserves records between restarts. The backend creates the schema and seeds 120 fictional patients on first startup. A persisted seed marker prevents duplication and prevents deleted patients from reappearing on restart. The initial PostgreSQL schema is provided in [`backend/sql/001_initial.sql`](backend/sql/001_initial.sql) and additive search indexes in [`backend/sql/002_ranked_patient_search.sql`](backend/sql/002_ranked_patient_search.sql) for inspection; startup applies the equivalent definitions automatically.
 
 Stop with `docker compose down`. To deliberately discard **all local patient data** and reseed on the next start, use `docker compose down --volumes`.
 
@@ -87,7 +87,21 @@ FastAPI publishes the complete request/response schemas at `/docs` and `/openapi
 | `DELETE` | `/patients/{id}/notes/{note_id}` | Delete a note belonging to the specified patient (`204`). |
 | `GET` | `/patients/{id}/summary` | Generate a current template summary. |
 
-Directory parameters: `search`, `status`, `page` (1+), `page_size` (1–100; default 12), `sort_by` (`name`, `age`, `last_visit`, or `status`), and `sort_order` (`asc` or `desc`). Search matches full name, email, phone, and recorded conditions, case-insensitively. Results include `items`, `total`, `page`, `page_size`, and `total_pages`; stable ID ordering breaks ties. Missing patients/notes return `404`; invalid request data returns `422`.
+Directory parameters: `search`, `status`, `page` (1+), `page_size` (1–100; default 12), `sort_by` (`name`, `age`, `last_visit`, or `status`), and `sort_order` (`asc` or `desc`). Results include `items`, `total`, `page`, `page_size`, and `total_pages`; stable ID ordering breaks ties. Missing patients/notes return `404`; invalid request data returns `422`.
+
+### Ranked patient search
+
+Nonblank searches rank candidates in this order, before pagination:
+
+1. Exact full UUID (canonical or compact), or the displayed eight-character short ID. Short IDs are not guaranteed unique; collisions return every matching patient.
+2. Exact full name or contact. Name matching ignores case and repeated whitespace; email ignores case, and phone matching ignores formatting characters.
+3. A full, first, or last name starting with the search.
+4. A substring in the full name, email, phone, or recorded conditions. SQL wildcard characters are treated literally.
+5. Similar names, labelled **Possible match**. PostgreSQL `pg_trgm` compares full, first, and last names with a similarity threshold of 0.3; suggestions within this tier sort by similarity. Fuzzy expansion requires at least three letters and allows only letters, spaces, apostrophes, or hyphens. IDs, email addresses, phone numbers, and one/two-letter queries do not receive fuzzy expansion. This catches some name typos; it is not a guarantee that every misspelling will match.
+
+The chosen column sort breaks relevance ties, followed by stable ID ordering. With no search, column sorting applies normally. Status filtering applies to all candidate types. Each list item carries `search_match` (`kind`, `label`, and `score`), or `null` for an unfiltered directory. The fuzzy score is text similarity, not a probability that two records identify the same person; other tiers use 1.0. The UI displays labels rather than numerical confidence.
+
+Rows show date of birth, short ID, and contact details, with the full ID accessible. A similar name never selects or opens a patient automatically. During the 350ms debounce and pending search response, old rows and counts are hidden rather than presented as matches for the new term. Search state remains in the URL.
 
 ## Architecture and tradeoffs
 
@@ -101,7 +115,7 @@ React + TypeScript + Mantine
 
 React Router handles page navigation. React Hook Form and Zod provide immediate form feedback; Pydantic independently validates API input. TanStack Query owns remote data, caching, loading/error states, and invalidation. Component state is sufficient for transient UI, so Redux would add little value here.
 
-Pagination and filtering run in SQL rather than downloading every profile. Small pages make virtualization unnecessary for this dataset. Database indexes cover names, status, visit dates, and note relationships. Search uses case-insensitive substring matching; a larger dataset would justify measured query tuning and trigram/full-text indexes.
+Pagination, candidate filtering, and relevance ranking run in SQL rather than downloading every profile. Small pages make virtualization unnecessary for this dataset. Database indexes cover names, status, visit dates, and note relationships. PostgreSQL uses GIN trigram expression indexes for names, contacts, and conditions, plus exact-match expression indexes. Startup installs `pg_trgm` in `public` and creates missing search indexes idempotently; the database role needs permission to install this trusted extension and create indexes. SQLite uses compatible trigram SQL functions for test compatibility; Unicode classification can vary with locale, so PostgreSQL remains authoritative and is the production search path. A larger dataset would still require realistic load tests, query-plan inspection, and versioned index migrations.
 
 SQLAlchemy models keep persistence separate from API schemas. Schema creation uses `create_all` to keep a fresh take-home install simple. A production application would need versioned migrations, authentication, access control, audit history, and operational monitoring before holding real patient information.
 
@@ -136,12 +150,13 @@ python3 scripts/smoke_test.py --api-base http://127.0.0.1:3000/api --frontend-ur
 
 This checks the frontend API proxy, pagination, patient CRUD and persistence, timestamped notes, summaries, and root/detail SPA HTML. It modifies only a disposable patient fixture it creates and removes that fixture during cleanup; existing patient records are only read.
 
-The committed verification workflow checks 31 API tests against PostgreSQL 17 and repeats the same suite on isolated SQLite databases. It runs frontend lint, formatting, typechecking, a production build, and `npm audit --audit-level=moderate`. The updated lock file currently reports zero known vulnerabilities.
+The committed verification workflow checks 48 API tests against PostgreSQL 17 and repeats the suite on isolated SQLite databases, including search tier order, normalization, typo suggestions, literal wildcard behavior, and filtered pagination. It runs frontend lint, formatting, typechecking, a production build, and `npm audit --audit-level=moderate`. The updated lock file currently reports zero known vulnerabilities.
 
-The Compose job builds and starts the three services, runs the HTTP smoke check through nginx, and then runs Chromium against the actual React application. The two browser tests cover:
+The Compose job builds and starts the three services, runs the HTTP smoke check through nginx, and then runs Chromium against the actual React application. The three browser tests cover:
 
 - Required form validation; create → edit → reload → timestamped note → summary → delete note → regenerate → delete patient → missing-record page.
 - The patient-query refresh after note deletion, plus loaded dashboard, directory, and detail layouts at 390px. Table pages must have no document overflow and must support keyboard scrolling within their table region.
+- Ranked exact-name, prefix, substring, and fuzzy suggestions; exact short ID/contact searches; visible identity details; stale-result suppression; and explicit navigation to the chosen patient.
 
 To reproduce browser checks against the running local Compose stack:
 
@@ -154,7 +169,7 @@ npm run test:e2e
 
 Browser tests accept only loopback origins and create/clean up their own patient. CI uploads the HTML report and failure evidence as the `browser-verification` artifact. The HTTP smoke check verifies API responses and SPA HTML; it does not operate React forms. Docker is unavailable on the development machine, so the complete container and Chromium check runs on GitHub's Ubuntu runner.
 
-The [verified CI run](https://github.com/liamcox/ascertain-full-stack-take-home/actions/runs/40598418999) passes all three jobs, including both browser tests. See the [reviewer walkthrough](docs/reviewer-walkthrough.md) for a short manual journey. Hosted browser checks cover read workflows; mutation evidence comes from the isolated Compose browser suite. Mobile containment was rechecked after patient rows loaded.
+The [ranked-search CI run](https://github.com/liamcox/ascertain-full-stack-take-home/actions/runs/40723164495) passes all three jobs, including all three browser tests. See the [verification workflow](https://github.com/liamcox/ascertain-full-stack-take-home/actions/workflows/verify.yml) for newer results and the [reviewer walkthrough](docs/reviewer-walkthrough.md) for a short manual journey. Hosted browser checks cover read workflows; mutation evidence comes from the isolated Compose browser suite. Mobile containment is checked after patient rows load.
 
 Python direct and transitive dependencies are constrained by the committed requirements lock files; npm uses the committed `package-lock.json`.
 
