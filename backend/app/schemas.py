@@ -55,8 +55,18 @@ class PatientRead(PatientWrite):
     updated_at: datetime
 
 
+class SearchMatch(BaseModel):
+    kind: Literal["exact_id", "exact_name", "exact_contact", "name_prefix", "substring", "fuzzy"]
+    label: str
+    score: float = Field(ge=0, le=1)
+
+
+class PatientSearchResult(PatientRead):
+    search_match: SearchMatch | None = None
+
+
 class PatientPage(BaseModel):
-    items: list[PatientRead]
+    items: list[PatientSearchResult]
     total: int
     page: int
     page_size: int

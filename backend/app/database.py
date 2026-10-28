@@ -21,6 +21,12 @@ def make_engine(url: str):
         @event.listens_for(engine, "connect")
         def enable_foreign_keys(connection, _):
             connection.execute("PRAGMA foreign_keys=ON")
+            # The production database supplies these through pg_trgm and
+            # regexp_replace. Register deterministic SQLite equivalents for
+            # the same SQL search predicates in local development/tests.
+            from .search import sqlite_regexp_replace, trigram_similarity
+            connection.create_function("regexp_replace", 4, sqlite_regexp_replace, deterministic=True)
+            connection.create_function("similarity", 2, trigram_similarity, deterministic=True)
     return engine
 
 

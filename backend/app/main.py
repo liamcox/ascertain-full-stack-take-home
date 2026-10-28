@@ -6,13 +6,14 @@ from uuid import UUID
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import String, cast, func, or_, select, text
+from sqlalchemy import case, func, select, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from .database import Base, engine
 from .models import Note, Patient, PatientStatus, utc_now
-from .schemas import Dashboard, NoteRead, NoteWrite, PatientPage, PatientRead, PatientSummary, PatientWrite
+from .schemas import Dashboard, NoteRead, NoteWrite, PatientPage, PatientRead, PatientSearchResult, PatientSummary, PatientWrite, SearchMatch
+from .search import FUZZY_THRESHOLD, MATCH_LABELS, ensure_search_indexes, ranked_search
 from .seed import seed_database
 
 
@@ -46,6 +47,7 @@ def create_app(db_engine: Engine = engine, seed_enabled: bool | None = None) -> 
     @asynccontextmanager
     async def lifespan(application: FastAPI):
         Base.metadata.create_all(db_engine)
+        ensure_search_indexes(db_engine)
         if should_seed:
             with session_factory() as session:
                 seed_database(session)
@@ -83,17 +85,14 @@ def create_app(db_engine: Engine = engine, seed_enabled: bool | None = None) -> 
         sort_order: Literal["asc", "desc"] = "asc",
     ):
         query = select(Patient)
+        ranking = None
         if search.strip():
-            # Escape SQL wildcards so searching for '%' or '_' is literal.
-            escaped = search.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-            pattern = f"%{escaped}%"
-            full_name = Patient.first_name + " " + Patient.last_name
-            query = query.where(or_(
-                full_name.ilike(pattern, escape="\\"),
-                Patient.email.ilike(pattern, escape="\\"),
-                Patient.phone.ilike(pattern, escape="\\"),
-                cast(Patient.conditions, String).ilike(pattern, escape="\\"),
-            ))
+            if db_engine.dialect.name == "postgresql":
+                # No connection-pool state leaks: set_config's true flag scopes
+                # the indexable % operator threshold to this transaction only.
+                session.execute(select(func.set_config("pg_trgm.similarity_threshold", str(FUZZY_THRESHOLD), True)))
+            ranking = ranked_search(search, db_engine.dialect.name)
+            query = query.where(ranking.predicate)
         if status:
             query = query.where(Patient.status == PatientStatus(status))
         total = session.scalar(select(func.count()).select_from(query.subquery())) or 0
@@ -107,7 +106,21 @@ def create_app(db_engine: Engine = engine, seed_enabled: bool | None = None) -> 
         else:
             columns = [func.lower(Patient.last_name), func.lower(Patient.first_name)]
             ordering = [column.asc() if sort_order == "asc" else column.desc() for column in columns]
-        items = session.scalars(query.order_by(*ordering, Patient.id).offset((page - 1) * page_size).limit(page_size)).all()
+        if ranking is None:
+            items = session.scalars(query.order_by(*ordering, Patient.id).offset((page - 1) * page_size).limit(page_size)).all()
+        else:
+            # Relevance always precedes the chosen column sort. Only fuzzy
+            # suggestions use trigram similarity within their tier.
+            fuzzy_order = case((ranking.kind == "fuzzy", ranking.similarity), else_=0.0)
+            rows = session.execute(query.add_columns(ranking.kind, ranking.similarity).order_by(
+                ranking.tier, fuzzy_order.desc(), *ordering, Patient.id,
+            ).offset((page - 1) * page_size).limit(page_size)).all()
+            items = []
+            for patient, kind, score in rows:
+                item = PatientSearchResult.model_validate(patient)
+                label = "Exact short ID" if kind == "exact_id" and ranking.short_id else MATCH_LABELS[kind]
+                item.search_match = SearchMatch(kind=kind, label=label, score=round(float(score), 6) if kind == "fuzzy" else 1.0)
+                items.append(item)
         return {"items": items, "total": total, "page": page, "page_size": page_size, "total_pages": math.ceil(total / page_size)}
 
     @application.get("/dashboard", response_model=Dashboard, tags=["Patients"])
