@@ -272,15 +272,7 @@ export function PatientTable({
                       {compact ? (
                         <small>{patient.age} years old</small>
                       ) : (
-                        <>
-                          <small>DOB {formatDate(patient.dob)}</small>
-                          <small
-                            title={`Patient ID ${patient.id}`}
-                            aria-label={`Patient ID ${patient.id}`}
-                          >
-                            ID {patient.id.slice(0, 8).toUpperCase()}
-                          </small>
-                        </>
+                        <small>DOB {formatDate(patient.dob)}</small>
                       )}
                     </span>
                   </Link>
@@ -321,7 +313,7 @@ export function PatientTable({
                     aria-label={
                       compact
                         ? `View ${fullName(patient)}`
-                        : `View ${fullName(patient)}, born ${formatDate(patient.dob)}, patient ID ${patient.id}`
+                        : `View ${fullName(patient)}, born ${formatDate(patient.dob)}`
                     }
                   >
                     <ArrowRight size={17} />
