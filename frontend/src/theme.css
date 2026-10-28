@@ -1,0 +1,576 @@
+/* Custom application surfaces follow Mantine's active color scheme. */
+:root {
+  --surface: #fff;
+  --surface-muted: #f6f8f5;
+  --status-active: #729b68;
+  --status-follow-up: #c6a05a;
+  --status-inactive: #abb9a4;
+}
+
+.theme-toggle {
+  flex-shrink: 0;
+}
+
+@media (max-width: 580px) {
+  .theme-toggle {
+    width: 32px;
+    min-width: 32px;
+    height: 32px;
+    padding: 0;
+  }
+
+  .theme-toggle .mantine-Button-label,
+  .demo-indicator {
+    display: none;
+  }
+
+  .theme-toggle .mantine-Button-section {
+    margin: 0;
+  }
+}
+
+/* Outrank Mantine's runtime :root[scheme] token sheet without !important. */
+html:root[data-mantine-color-scheme='dark'] {
+  color-scheme: dark;
+  color: #e6eee9;
+  background: #101b16;
+  --ink: #e6eee9;
+  --muted: #a6b7ad;
+  --teal: #9ed7b7;
+  --line: #30463a;
+  --surface: #172620;
+  --surface-muted: #20332b;
+  --surface-hover: #263e31;
+  --status-active: #82c39a;
+  --status-follow-up: #d8ba7a;
+  --status-inactive: #93a79b;
+  --mantine-color-body: #101b16;
+  --mantine-color-text: var(--ink);
+  --mantine-color-dimmed: var(--muted);
+  --mantine-color-placeholder: #91a69a;
+  --mantine-color-default: var(--surface-muted);
+  --mantine-color-default-hover: var(--surface-hover);
+  --mantine-color-default-color: var(--ink);
+  --mantine-color-default-border: #496451;
+  --mantine-color-dark-0: #e6eee9;
+  --mantine-color-dark-1: #d4e0d7;
+  --mantine-color-dark-2: #b7c8be;
+  --mantine-color-dark-3: #8a9f91;
+  --mantine-color-dark-4: #506c5c;
+  --mantine-color-dark-5: #385145;
+  --mantine-color-dark-6: #24382d;
+  --mantine-color-dark-7: #1a2b22;
+  --mantine-color-dark-8: #142219;
+  --mantine-color-dark-9: #101b16;
+  --mantine-color-care-filled: #267352;
+  --mantine-color-care-filled-hover: #318462;
+  --mantine-color-care-light: #254537;
+  --mantine-color-care-light-hover: #2b5140;
+  --mantine-color-care-light-color: #a8dfc1;
+  --mantine-color-care-outline: #a8dfc1;
+  --mantine-color-care-outline-hover: #254537;
+}
+
+:root[data-mantine-color-scheme='dark'] ::selection {
+  background: #427b5b;
+  color: #fff;
+}
+
+:root[data-mantine-color-scheme='dark'] :is(a, button):focus-visible {
+  outline-color: #a8dfc1;
+}
+
+:root[data-mantine-color-scheme='dark'] :is(.desktop-sidebar, .topbar, .panel, .metric-card) {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-mantine-color-scheme='dark']
+  :is(
+    .brand,
+    .page-heading h1,
+    .detail-title h1,
+    .panel h2,
+    .directory-results-label,
+    .patient-link strong,
+    .info-grid dd,
+    .note-item p,
+    .note-top time,
+    .medical-stats strong,
+    .patient-record-id,
+    .empty-state h3,
+    .modal-heading,
+    .confirm-description strong,
+    .not-found h1,
+    .fatal-error h1
+  ) {
+  color: var(--ink);
+}
+
+:root[data-mantine-color-scheme='dark']
+  :is(
+    .brand-care,
+    .workspace-label,
+    .workspace-user small,
+    .breadcrumb-home,
+    .breadcrumb-detail,
+    .demo-indicator,
+    .eyebrow,
+    .page-heading p,
+    .overview-date,
+    .overview-date > svg,
+    .workspace-live,
+    .metric-top,
+    .metric-card p,
+    .panel-heading p,
+    .panel-heading .eyebrow,
+    .patient-link small,
+    .patient-table .date-cell,
+    .patient-table .age-cell,
+    .patient-table .contact-cell,
+    .age-cell span,
+    .contact-cell small,
+    .panel-footnote,
+    .status-panel .eyebrow,
+    .status-legend a,
+    .page-footer,
+    .page-footer > span:first-child,
+    .directory-top p,
+    .directory-search-help,
+    .directory-results-meta,
+    .directory-updating,
+    .pagination-footer,
+    .directory-hint,
+    .empty-state p,
+    .detail-title .eyebrow,
+    .detail-meta,
+    .info-grid dt,
+    .note-time,
+    .note-author,
+    .note-character-count,
+    .medical-group h3,
+    .medical-stats span,
+    .medical-empty,
+    .summary-description,
+    .summary-timestamp,
+    .summary-disclaimer,
+    .record-updated,
+    .record-id-label,
+    .form-intro,
+    .form-grid .mantine-InputWrapper-description,
+    .confirm-description,
+    .not-found p,
+    .fatal-error p,
+    .inset-error > p,
+    .muted
+  ) {
+  color: var(--muted);
+}
+
+:root[data-mantine-color-scheme='dark']
+  :is(.breadcrumb-chevron, .meta-dot, .info-grid dt svg, .medical-group h3 svg) {
+  color: #8a9f91;
+}
+
+:root[data-mantine-color-scheme='dark'] .breadcrumb-current {
+  color: #c7d8cc;
+}
+
+:root[data-mantine-color-scheme='dark'] .main-nav a {
+  color: var(--muted);
+}
+
+:root[data-mantine-color-scheme='dark'] .main-nav a:hover {
+  color: var(--ink);
+  background: var(--surface-muted);
+}
+
+:root[data-mantine-color-scheme='dark'] .main-nav a.active {
+  color: #b4e5c7;
+  background: #254537;
+}
+
+:root[data-mantine-color-scheme='dark'] .main-nav a.active:after {
+  background: #9ed7b7;
+}
+
+:root[data-mantine-color-scheme='dark'] .sidebar-note {
+  background: var(--surface-muted);
+  border-color: var(--line);
+}
+
+:root[data-mantine-color-scheme='dark']
+  :is(.sidebar-note-icon, .sidebar-note strong, .sidebar-note .mantine-Badge-root) {
+  color: #b1d7b6;
+  border-color: #496451;
+}
+
+:root[data-mantine-color-scheme='dark'] .sidebar-note p {
+  color: var(--muted);
+}
+
+:root[data-mantine-color-scheme='dark'] .workspace-avatar {
+  background: #493c29;
+  color: #e5ce9f;
+}
+
+:root[data-mantine-color-scheme='dark'] .header-avatar {
+  background: #304c39;
+  color: #c5dfba;
+}
+
+:root[data-mantine-color-scheme='dark'] .date-line {
+  background: var(--line);
+}
+
+:root[data-mantine-color-scheme='dark'] .metric-icon {
+  color: #afc9b4;
+  background: var(--surface-muted);
+}
+
+:root[data-mantine-color-scheme='dark'] .metric-value {
+  color: var(--ink);
+}
+
+:root[data-mantine-color-scheme='dark'] .metric-total {
+  background: #203d2e;
+  border-color: #3e6049;
+}
+
+:root[data-mantine-color-scheme='dark'] .metric-total .metric-top {
+  color: #b4d5bf;
+}
+
+:root[data-mantine-color-scheme='dark'] .metric-total .metric-icon {
+  background: #2b503a;
+  color: #c2e4c7;
+}
+
+:root[data-mantine-color-scheme='dark'] .metric-total .metric-value {
+  color: #b7e5c8;
+}
+
+:root[data-mantine-color-scheme='dark'] .metric-followup .metric-icon {
+  background: #493b27;
+  color: #e0c38e;
+}
+
+:root[data-mantine-color-scheme='dark'] .metric-decoration {
+  border-color: #20352a;
+}
+
+:root[data-mantine-color-scheme='dark'] .metric-total .metric-decoration {
+  border-color: #2a4935;
+}
+
+:root[data-mantine-color-scheme='dark'] .table-scroll {
+  scrollbar-color: #506c5c #172620;
+}
+
+:root[data-mantine-color-scheme='dark'] .patient-table th {
+  color: #bacbc0;
+  background: #1d3027;
+  border-color: var(--line);
+}
+
+:root[data-mantine-color-scheme='dark'] .patient-table td {
+  color: #c8d7cc;
+  border-color: var(--line);
+}
+
+:root[data-mantine-color-scheme='dark'] .patient-table tbody tr:hover {
+  background: #1d3027;
+}
+
+/* Patient avatars set a pastel background inline in the light presentation. */
+:root[data-mantine-color-scheme='dark'] :is(.patient-link, .detail-header) .mantine-Avatar-root {
+  background: #334d40 !important;
+  color: #d2e4d7 !important;
+}
+
+:root[data-mantine-color-scheme='dark']
+  :is(.patient-link, .detail-header)
+  .mantine-Avatar-placeholder {
+  color: #d2e4d7;
+}
+
+:root[data-mantine-color-scheme='dark']
+  :is(
+    .patient-link:hover strong,
+    .info-grid a:hover,
+    .sort-heading:hover,
+    .sort-heading.is-sorted,
+    .status-legend a:hover,
+    .status-legend strong,
+    .directory-search-help summary,
+    .back-link:hover,
+    .record-copy-feedback
+  ) {
+  color: #a8dfc1;
+}
+
+:root[data-mantine-color-scheme='dark']
+  :is(.row-action .mantine-ActionIcon-root, .note-top .mantine-ActionIcon-root, .back-link) {
+  color: #a9c1b1;
+}
+
+:root[data-mantine-color-scheme='dark'] .status-active {
+  color: #abe0b9;
+  background: #254532;
+}
+
+:root[data-mantine-color-scheme='dark'] .status-follow_up {
+  color: #e7ca91;
+  background: #463924;
+}
+
+:root[data-mantine-color-scheme='dark'] .status-inactive {
+  color: #c1d0c5;
+  background: #2c3d33;
+}
+
+:root[data-mantine-color-scheme='dark'] :is(.meter-active, .legend-active) {
+  background: var(--status-active);
+}
+
+:root[data-mantine-color-scheme='dark'] :is(.meter-followup, .legend-follow_up) {
+  background: var(--status-follow-up);
+}
+
+:root[data-mantine-color-scheme='dark'] :is(.meter-inactive, .meter-empty, .legend-inactive) {
+  background: var(--status-inactive);
+}
+
+:root[data-mantine-color-scheme='dark'] .status-legend svg {
+  color: var(--muted);
+}
+
+:root[data-mantine-color-scheme='dark'] .panel-footnote {
+  background: #142219;
+  border-color: var(--line);
+}
+
+:root[data-mantine-color-scheme='dark'] :is(.care-callout, .summary-panel) {
+  background: #253727;
+  border-color: #40573b;
+}
+
+:root[data-mantine-color-scheme='dark']
+  :is(.care-callout-icon, .care-callout .mantine-Badge-root, .summary-header .eyebrow) {
+  color: #b8d09c;
+}
+
+:root[data-mantine-color-scheme='dark'] :is(.care-callout h2, .summary-panel h2) {
+  color: #c3dcaa;
+}
+
+:root[data-mantine-color-scheme='dark'] .care-callout p {
+  color: #b3c5a6;
+}
+
+:root[data-mantine-color-scheme='dark'] .care-callout .mantine-Button-root {
+  color: #c9e1b6;
+  background: #2c462e;
+  border-color: #698359;
+}
+
+:root[data-mantine-color-scheme='dark'] .care-callout .mantine-Button-root:hover {
+  background: #365439;
+}
+
+:root[data-mantine-color-scheme='dark'] .callout-decoration {
+  color: #354b2d;
+}
+
+:root[data-mantine-color-scheme='dark']
+  :is(.count-badge, .directory-symbol, .empty-icon, .form-section-heading span) {
+  color: #bdd6b7;
+  background: var(--surface-muted);
+}
+
+:root[data-mantine-color-scheme='dark'] .directory-results-heading {
+  background: #1d3027;
+}
+
+:root[data-mantine-color-scheme='dark'] .search-match {
+  color: #bbe4ca;
+  background: #254537;
+  border-color: #496d55;
+}
+
+:root[data-mantine-color-scheme='dark'] .search-match-fuzzy {
+  color: #ebce98;
+  background: #463924;
+  border-color: #79613c;
+}
+
+:root[data-mantine-color-scheme='dark'] .pagination-footer strong {
+  color: #c8dcc8;
+}
+
+:root[data-mantine-color-scheme='dark'] .pagination-footer .mantine-Pagination-control {
+  color: #c8dcc8;
+  border-color: #496451;
+}
+
+:root[data-mantine-color-scheme='dark']
+  .pagination-footer
+  .mantine-Pagination-control[data-active] {
+  color: #cef0d7;
+  background: #30503b;
+  border-color: #65856c;
+}
+
+:root[data-mantine-color-scheme='dark'] :is(.skeleton-row, .detail-header, .note-item) {
+  border-color: var(--line);
+}
+
+:root[data-mantine-color-scheme='dark'] .detail-actions .mantine-Button-root {
+  background: var(--surface-muted);
+  color: #c3ddc3;
+  border-color: #496451;
+}
+
+:root[data-mantine-color-scheme='dark'] .detail-actions .mantine-ActionIcon-root {
+  color: #b3cbb8;
+  border-color: #496451;
+}
+
+:root[data-mantine-color-scheme='dark'] .panel-heading.compact h2 > svg {
+  color: #b3cbb8;
+}
+
+:root[data-mantine-color-scheme='dark'] .panel-heading .mantine-Button-root {
+  color: #a8dfc1;
+}
+
+:root[data-mantine-color-scheme='dark'] .note-composer {
+  background: #142219;
+}
+
+:root[data-mantine-color-scheme='dark']
+  :is(.note-composer .mantine-Textarea-label, .form-grid .mantine-InputWrapper-label) {
+  color: #c2d4c6;
+}
+
+:root[data-mantine-color-scheme='dark']
+  :is(
+    .patient-search .mantine-Input-input,
+    .status-filter .mantine-Input-input,
+    .note-date .mantine-Input-input,
+    .note-composer .mantine-Textarea-input,
+    .form-grid .mantine-Input-input,
+    .form-grid .mantine-Textarea-input
+  ) {
+  color: var(--ink);
+  background: #122019;
+  border-color: #526e5b;
+}
+
+:root[data-mantine-color-scheme='dark']
+  :is(
+    .patient-search .mantine-Input-input,
+    .status-filter .mantine-Input-input,
+    .note-date .mantine-Input-input,
+    .note-composer .mantine-Textarea-input,
+    .form-grid .mantine-Input-input,
+    .form-grid .mantine-Textarea-input
+  ):focus:not([data-error]) {
+  border-color: #a8dfc1;
+}
+
+:root[data-mantine-color-scheme='dark']
+  :is(.mantine-Input-input, .mantine-Textarea-input)[data-error] {
+  border-color: #f0a2a2;
+}
+
+:root[data-mantine-color-scheme='dark']
+  :is(.patient-search, .status-filter, .note-date)
+  .mantine-Input-section {
+  color: #a6bdad;
+}
+
+:root[data-mantine-color-scheme='dark']
+  :is(.mantine-Input-input, .mantine-Textarea-input)::placeholder {
+  color: #91a69a;
+  opacity: 1;
+}
+
+:root[data-mantine-color-scheme='dark'] .note-item:before {
+  background: var(--line);
+}
+
+:root[data-mantine-color-scheme='dark'] .timeline-dot {
+  background: var(--surface);
+  border-color: #a3c18e;
+}
+
+:root[data-mantine-color-scheme='dark'] .medical-tags [data-variant='light'][data-color='gray'] {
+  color: #c8dcc1;
+  background: #2b422f;
+}
+
+:root[data-mantine-color-scheme='dark'] .summary-icon {
+  background: #3b5132;
+  color: #c3dcaa;
+}
+
+:root[data-mantine-color-scheme='dark'] .generated-summary {
+  background: #19271b;
+  border-color: #49603f;
+}
+
+:root[data-mantine-color-scheme='dark'] .summary-output {
+  color: #c6dcb7;
+}
+
+:root[data-mantine-color-scheme='dark'] .record-copy-feedback[data-status='error'] {
+  color: #f0af99;
+}
+
+:root[data-mantine-color-scheme='dark'] :is(.form-section-heading, .modal-footer) {
+  border-color: var(--line);
+}
+
+:root[data-mantine-color-scheme='dark'] .form-section-heading h3 {
+  color: #c2d4b8;
+}
+
+:root[data-mantine-color-scheme='dark'] .delete-modal-icon {
+  color: #f1b49e;
+  background: #4b2f27;
+}
+
+:root[data-mantine-color-scheme='dark'] .note-preview {
+  color: #cad8be;
+  background: var(--surface-muted);
+  border-color: #789269;
+}
+
+:root[data-mantine-color-scheme='dark'] .not-found-code {
+  color: #446147;
+}
+
+:root[data-mantine-color-scheme='dark']
+  :is(
+    .mantine-Modal-content,
+    .mantine-Modal-header,
+    .mantine-Drawer-content,
+    .mantine-Drawer-header,
+    .mantine-Menu-dropdown,
+    .mantine-Combobox-dropdown,
+    .mantine-Popover-dropdown,
+    .mantine-Notification-root
+  ) {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--line);
+}
+
+:root[data-mantine-color-scheme='dark'] .mantine-Notification-title {
+  color: var(--ink);
+}
+
+:root[data-mantine-color-scheme='dark'] .mantine-Notification-description {
+  color: var(--muted);
+}
