@@ -31,7 +31,8 @@ export function PatientsPage() {
   const sortOrder = params.get('sort_order') === 'desc' ? 'desc' : 'asc';
   const pageSize = 12;
   const serverSearch = params.get('search') || '';
-  const filtered = Boolean(serverSearch || status);
+  const filtered = Boolean(search.trim() || serverSearch || status);
+  const ranked = Boolean(serverSearch);
   function updateParams(updates: Record<string, string>, resetPage = true) {
     setParams(
       (current) => {
@@ -83,8 +84,11 @@ export function PatientsPage() {
     placeholderData: keepPreviousData,
   });
   const data = query.data;
+  const isDebouncing = search.trim() !== serverSearch;
+  const resultsPending = isDebouncing || query.isPlaceholderData || query.isPending;
+  const searching = resultsPending && Boolean(search.trim() || serverSearch);
   useEffect(() => {
-    if (data && !query.isPlaceholderData && page > Math.max(1, data.total_pages)) {
+    if (data && !resultsPending && page > Math.max(1, data.total_pages)) {
       setParams(
         (current) => {
           const next = new URLSearchParams(current);
@@ -94,7 +98,7 @@ export function PatientsPage() {
         { replace: true },
       );
     }
-  }, [data, page, query.isPlaceholderData, setParams]);
+  }, [data, page, resultsPending, setParams]);
   function clearFilters() {
     setSearch('');
     updateParams({ search: '', status: '' });
@@ -112,7 +116,10 @@ export function PatientsPage() {
         <div className="directory-top">
           <div>
             <h2>
-              Patient directory <span className="count-badge">{data?.total ?? '—'}</span>
+              Patient directory{' '}
+              <span className="count-badge">
+                {!resultsPending && !query.isError ? (data?.total ?? '—') : '—'}
+              </span>
             </h2>
             <p>
               {filtered
@@ -126,8 +133,9 @@ export function PatientsPage() {
         </div>
         <div className="directory-toolbar">
           <TextInput
-            aria-label="Search patients by name or email"
-            placeholder="Search by name or email…"
+            aria-label="Search patients by ID, name, email, phone, or condition"
+            aria-describedby="patient-search-help"
+            placeholder="Search ID, name, email, phone…"
             maxLength={200}
             value={search}
             onChange={(event) => setSearch(event.currentTarget.value)}
@@ -167,10 +175,10 @@ export function PatientsPage() {
             </Button>
           )}
           <span className="directory-updating" role="status" aria-live="polite">
-            {query.isFetching && !query.isPending ? (
+            {resultsPending || query.isFetching ? (
               <>
                 <Loader size={12} color="teal" />
-                <span>Updating</span>
+                <span>{searching ? 'Searching…' : 'Updating…'}</span>
               </>
             ) : (
               <>
@@ -180,21 +188,42 @@ export function PatientsPage() {
             )}
           </span>
         </div>
-        {query.isError ? (
+        <div className="directory-search-help" id="patient-search-help">
+          <p>Search by patient ID, name, email, phone, or condition.</p>
+          {(search.trim() || serverSearch) && (
+            <>
+              <p>
+                Exact ID matches appear first, followed by exact names or contacts, names starting
+                with your search, other matches, then similar names. Column sorting breaks relevance
+                ties.
+              </p>
+              <p>
+                Possible match suggests a similar name. Check date of birth, ID, and contact details
+                before opening.
+              </p>
+            </>
+          )}
+        </div>
+        {resultsPending ? (
+          searching ? (
+            <div className="directory-searching" role="status" aria-live="polite">
+              <Loader size={20} color="teal" />
+              <p>Searching…</p>
+            </div>
+          ) : (
+            <TableSkeleton rows={8} />
+          )
+        ) : query.isError ? (
           <div className="inset-error">
             <ErrorState error={query.error} retry={() => void query.refetch()} />
           </div>
-        ) : query.isPending ? (
-          <TableSkeleton rows={8} />
         ) : data?.items.length ? (
-          <div
-            className={query.isPlaceholderData ? 'is-updating' : ''}
-            aria-busy={query.isFetching}
-          >
+          <div aria-busy={query.isFetching}>
             <PatientTable
               patients={data.items}
               sortBy={sortBy}
               sortOrder={sortOrder}
+              ranked={ranked}
               onSort={(field) =>
                 updateParams({
                   sort_by: field,
@@ -216,11 +245,11 @@ export function PatientsPage() {
             }
           >
             {filtered
-              ? 'Try a different name, email address, or status.'
+              ? 'Try a different ID, name, contact detail, condition, or status.'
               : 'Create your first patient record to get started.'}
           </EmptyState>
         )}
-        {data && !query.isError && data.total > 0 && (
+        {data && !resultsPending && !query.isError && data.total > 0 && (
           <div className="pagination-footer">
             <span>
               Showing{' '}
