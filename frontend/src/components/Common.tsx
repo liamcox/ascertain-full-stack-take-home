@@ -152,6 +152,7 @@ export function PatientTable({
   onSort,
   compact = false,
   ranked = false,
+  sortDisabled = false,
 }: {
   patients: (Patient | PatientSearchResult)[];
   sortBy?: string;
@@ -159,6 +160,7 @@ export function PatientTable({
   onSort?: (field: string) => void;
   compact?: boolean;
   ranked?: boolean;
+  sortDisabled?: boolean;
 }) {
   const scrollHintId = useId();
   function heading(label: string, field: string) {
@@ -169,6 +171,7 @@ export function PatientTable({
       <button
         type="button"
         onClick={() => onSort(field)}
+        disabled={sortDisabled}
         className={`sort-heading ${sortBy === field ? 'is-sorted' : ''}`}
         title={ranked ? `Use ${label.toLowerCase()} to break relevance ties` : undefined}
       >
@@ -271,11 +274,11 @@ export function PatientTable({
                       ) : (
                         <>
                           <small>DOB {formatDate(patient.dob)}</small>
-                          <small title={`Patient ID ${patient.id}`}>
-                            <span aria-hidden="true">
-                              ID {patient.id.slice(0, 8).toUpperCase()}
-                            </span>
-                            <span className="sr-only">Patient ID {patient.id}</span>
+                          <small
+                            title={`Patient ID ${patient.id}`}
+                            aria-label={`Patient ID ${patient.id}`}
+                          >
+                            ID {patient.id.slice(0, 8).toUpperCase()}
                           </small>
                         </>
                       )}
