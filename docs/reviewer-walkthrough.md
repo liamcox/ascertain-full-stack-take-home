@@ -7,6 +7,7 @@ Allow 3–5 minutes for the manual walkthrough after the app is running. All see
 Open [Ascertain Care](https://ascertain-care-liam-2026.liamcox190.chatgpt.site/). The free API may take about a minute to wake after inactivity; retry if the first request fails.
 
 - Open the patient directory, search for a name, change the status filter, sort a column, and move between pages.
+- Search `Harpr` to see **Possible match** suggestions for Harper. Compare birth date, short ID, and contact details before opening a result. Search a full name or copy a displayed short ID to see its stronger match label. No record opens automatically, and column sorting only breaks relevance ties while searching.
 - Open an existing profile, read its saved notes, and select **Generate summary**. Refresh the profile URL to check direct navigation.
 - At a narrow viewport, scroll the patient table horizontally; keyboard users can focus the table region and use the arrow keys.
 
@@ -49,8 +50,8 @@ On Linux, install Playwright's browser system dependencies if prompted (`npx pla
 E2E_BASE_URL=http://localhost:3000 npm run test:e2e
 ```
 
-The configuration rejects hosted targets. Browser requests to non-loopback hosts are also blocked so a local UI accidentally built with a hosted API URL cannot modify the shared demo. The workflow creates a unique patient and cleans up only that patient, including after a failed run. Other seeded records are read only.
+The configuration rejects hosted targets. Browser requests to non-loopback hosts are also blocked so a local UI accidentally built with a hosted API URL cannot modify the shared demo. The workflows create uniquely named patients and clean up only those fixtures, including after a failed run. Other seeded records are read only.
 
-These Playwright checks exercise real form validation, create/edit/reload persistence, a specific note timestamp, summaries, note and patient deletion, the missing-record state, and 390px table overflow and keyboard scrolling. Results are written to `frontend/playwright-report/`; failure screenshots, traces, and videos are retained in `frontend/test-results/`. Open the HTML report with `npx playwright show-report` from `frontend/`.
+These Playwright checks exercise real form validation, create/edit/reload persistence, a specific note timestamp, summaries, note and patient deletion, the missing-record state, and 390px table overflow and keyboard scrolling. A separate search journey checks tier ordering, possible-match labels, distinguishing birth dates/IDs/contacts, exact short-ID/contact queries, suppression of old clickable results while a response is held, and explicit selection of the intended record. Results are written to `frontend/playwright-report/`; failure screenshots, traces, and videos are retained in `frontend/test-results/`. Open the HTML report with `npx playwright show-report` from `frontend/`.
 
 The separate `scripts/smoke_test.py` check uses HTTP requests through nginx's API proxy to verify API behavior, persistence, and SPA HTML delivery. It does not operate browser controls or verify rendered layout; Playwright covers those interactions.
