@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ActionIcon,
@@ -20,6 +20,7 @@ import {
   Check,
   ClipboardList,
   Clock3,
+  Copy,
   FileText,
   HeartPulse,
   Mail,
@@ -113,6 +114,77 @@ function ProfileInfo({ patient }: { patient: Patient }) {
           </div>
         ))}
       </dl>
+    </section>
+  );
+}
+
+function RecordDetails({ patient }: { patient: Patient }) {
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copying' | 'copied' | 'error'>('idle');
+  const copyVersion = useRef(0);
+  const resetTimer = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      copyVersion.current += 1;
+      if (resetTimer.current !== null) window.clearTimeout(resetTimer.current);
+    },
+    [],
+  );
+  async function copyID() {
+    const version = ++copyVersion.current;
+    if (resetTimer.current !== null) window.clearTimeout(resetTimer.current);
+    setCopyStatus('copying');
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+      await navigator.clipboard.writeText(patient.id);
+      if (version !== copyVersion.current) return;
+      setCopyStatus('copied');
+      resetTimer.current = window.setTimeout(() => {
+        if (version === copyVersion.current) setCopyStatus('idle');
+      }, 2500);
+    } catch {
+      if (version === copyVersion.current) setCopyStatus('error');
+    }
+  }
+  return (
+    <section className="panel record-details-panel" aria-label="Record details">
+      <div className="panel-heading compact">
+        <h2>
+          <FileText size={18} />
+          Record details
+        </h2>
+      </div>
+      <div className="record-details-content">
+        <p className="record-id-label">Patient ID</p>
+        <code className="patient-record-id">{patient.id}</code>
+        <Button
+          variant="default"
+          size="xs"
+          leftSection={copyStatus === 'copied' ? <Check size={14} /> : <Copy size={14} />}
+          onClick={() => void copyID()}
+          disabled={copyStatus === 'copying'}
+        >
+          {copyStatus === 'copied' ? 'Copied' : 'Copy ID'}
+        </Button>
+        <p
+          className="record-copy-feedback"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          data-status={copyStatus}
+        >
+          {copyStatus === 'copied'
+            ? 'Patient ID copied.'
+            : copyStatus === 'error'
+              ? 'Couldn’t copy. Select and copy the full ID above.'
+              : copyStatus === 'copying'
+                ? 'Copying ID…'
+                : ''}
+        </p>
+        <div className="record-updated">
+          <Clock3 size={13} />
+          Record updated <time dateTime={patient.updated_at}>{formatDate(patient.updated_at)}</time>
+        </div>
+      </div>
     </section>
   );
 }
@@ -237,9 +309,7 @@ export function PatientDetailPage() {
       <div className="detail-header">
         <PatientAvatar patient={patient} size={76} />
         <div className="detail-title">
-          <div className="eyebrow">
-            PATIENT RECORD <span>#{patient.id.slice(0, 8).toUpperCase()}</span>
-          </div>
+          <div className="eyebrow">PATIENT RECORD</div>
           <h1>{fullName(patient)}</h1>
           <div className="detail-meta">
             <StatusBadge status={patient.status} />
@@ -490,10 +560,7 @@ export function PatientDetailPage() {
             </Button>
             <p className="summary-disclaimer">Built from saved details. No information is added.</p>
           </section>
-          <div className="record-updated">
-            <Clock3 size={13} />
-            Record updated {formatDate(patient.updated_at)}
-          </div>
+          <RecordDetails key={patient.id} patient={patient} />
         </aside>
       </div>
       <PatientForm

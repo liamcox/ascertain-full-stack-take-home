@@ -205,9 +205,9 @@ export function PatientsPage() {
         </div>
         <div className="directory-toolbar">
           <TextInput
-            aria-label="Search patients by ID, name, email, phone, or condition"
+            aria-label="Search patients by name, email, phone, or condition"
             aria-describedby="patient-search-help"
-            placeholder="Search ID, name, email, phone…"
+            placeholder="Search name, email, phone…"
             maxLength={200}
             value={search}
             onChange={(event) => {
@@ -280,13 +280,15 @@ export function PatientsPage() {
           </Button>
         </div>
         <div className="directory-search-help" id="patient-search-help">
-          <p>Search ID, name, email, phone, or condition. Press Enter to search immediately.</p>
+          <p>Search name, email, phone, or condition. Press Enter to search immediately.</p>
           <details>
             <summary>How matches are ordered</summary>
             <p>
-              Exact IDs appear first, then exact names or contacts, names starting with your search,
-              other matches, and similar names. Column sorting breaks relevance ties. Check date of
-              birth, ID, and contact details before opening a possible match.
+              Exact names or contacts appear before names starting with your search, other matches,
+              and similar names. Column sorting breaks relevance ties. Check date of birth and
+              contact details before opening a possible match. You can also paste the full patient
+              ID copied from a profile’s Record details for an exact lookup; exact ID matches appear
+              first.
             </p>
           </details>
         </div>
