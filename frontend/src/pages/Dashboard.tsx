@@ -5,7 +5,6 @@ import {
   ArrowRight,
   ArrowUpRight,
   CalendarDays,
-  ChevronRight,
   Clock3,
   HeartPulse,
   Plus,
@@ -24,6 +23,7 @@ import {
   TableSkeleton,
 } from '../components/Common';
 import { AddPatientButton, useCreatePatient } from '../components/Layout';
+import { PatientStatusChart } from '../components/PatientStatusChart';
 
 export function DashboardPage() {
   const query = useQuery({
@@ -32,7 +32,6 @@ export function DashboardPage() {
   });
   const openCreate = useCreatePatient();
   const data = query.data;
-  const total = data?.total_patients || 0;
   const counts = [
     {
       label: 'Total patients',
@@ -151,58 +150,7 @@ export function DashboardPage() {
               </div>
             </section>
             <aside className="dashboard-aside">
-              <section className="panel status-panel">
-                <div className="eyebrow">YOUR PATIENT COMMUNITY</div>
-                <h2>Care at a glance</h2>
-                <div
-                  className="status-meter"
-                  role="img"
-                  aria-label={
-                    data
-                      ? `${data.active_patients} active, ${data.follow_up_patients} need follow-up, ${data.inactive_patients} inactive patients`
-                      : 'Loading patient status breakdown'
-                  }
-                >
-                  {query.isPending ? (
-                    <Skeleton width="100%" height={14} />
-                  ) : total === 0 ? (
-                    <span className="meter-empty" />
-                  ) : (
-                    <>
-                      <span
-                        className="meter-active"
-                        style={{ width: `${((data?.active_patients || 0) / total) * 100}%` }}
-                      />
-                      <span
-                        className="meter-followup"
-                        style={{ width: `${((data?.follow_up_patients || 0) / total) * 100}%` }}
-                      />
-                      <span
-                        className="meter-inactive"
-                        style={{ width: `${((data?.inactive_patients || 0) / total) * 100}%` }}
-                      />
-                    </>
-                  )}
-                </div>
-                <div className="status-legend">
-                  {[
-                    { name: 'Active', count: data?.active_patients, status: 'active' },
-                    {
-                      name: 'Needs follow-up',
-                      count: data?.follow_up_patients,
-                      status: 'follow_up',
-                    },
-                    { name: 'Inactive', count: data?.inactive_patients, status: 'inactive' },
-                  ].map((item) => (
-                    <Link key={item.status} to={`/patients?status=${item.status}`}>
-                      <span className={`legend-dot legend-${item.status}`} />
-                      <span>{item.name}</span>
-                      <strong>{query.isPending ? '—' : item.count}</strong>
-                      <ChevronRight size={14} />
-                    </Link>
-                  ))}
-                </div>
-              </section>
+              <PatientStatusChart data={data} loading={query.isPending} />
               <section className="care-callout">
                 <div className="care-callout-icon">
                   <HeartPulse size={24} strokeWidth={1.5} />
