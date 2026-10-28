@@ -57,6 +57,8 @@ Open [localhost:5173](http://localhost:5173). Vite proxies `/api` to the local F
 
 Use **Add patient** on the dashboard or directory to open the creation form; saving opens the new profile. Use **Edit patient** on a profile to open its edit form. Notes are added inline with a date/time picker defaulting to now.
 
+The header’s light/dark control follows the device theme initially and remembers a manual choice in browser local storage. The dashboard’s patient-status donut uses the API’s current status counts, with labelled counts and percentages; each legend link opens that filtered directory. Loading and zero-patient states are handled without empty-chart arithmetic errors.
+
 The interface includes loading, empty, failed-request, validation, and missing-record states. Destructive actions require confirmation. Successful mutations refresh the relevant directory, detail, notes, and dashboard queries.
 
 ## Data model and rules
@@ -119,7 +121,7 @@ Pagination, candidate filtering, and relevance ranking run in SQL rather than do
 
 SQLAlchemy models keep persistence separate from API schemas. Schema creation uses `create_all` to keep a fresh take-home install simple. A production application would need versioned migrations, authentication, access control, audit history, and operational monitoring before holding real patient information.
 
-The two focused stretch areas are server-side filtering/sorting and API tests. The four-hour scope prioritizes complete workflows, validation, persistence, and reproducible setup.
+Stretch features include server-side filtering/sorting, API tests, advanced ranked search, persistent light/dark themes, a patient-status chart, browser journeys, and CI checks. The initial scope prioritized complete workflows, validation, persistence, and reproducible setup; frontend refinements were added during review. The chart uses native SVG with a visible, keyboard-accessible legend rather than an additional chart library. Mantine manages color-scheme preference while semantic CSS tokens cover the custom interface.
 
 ## Checks
 
@@ -152,11 +154,12 @@ This checks the frontend API proxy, pagination, patient CRUD and persistence, ti
 
 The committed verification workflow checks 52 API tests against PostgreSQL 17 and repeats the suite on isolated SQLite databases, including search tier order, normalization, typo suggestions, literal wildcard behavior, and filtered pagination. It runs frontend lint, formatting, typechecking, a production build, and `npm audit --audit-level=moderate`. The updated lock file currently reports zero known vulnerabilities.
 
-The Compose job builds and starts the three services, runs the HTTP smoke check through nginx, and then runs Chromium against the actual React application. The four browser tests cover:
+The Compose job builds and starts the three services, runs the HTTP smoke check through nginx, and then runs Chromium against the actual React application. The six browser tests cover:
 
 - Required form validation; create → edit → reload → timestamped note → summary → delete note → regenerate → delete patient → missing-record page.
 - The patient-query refresh after note deletion, plus loaded dashboard, directory, and detail layouts at 390px. Table pages must have no document overflow and must support keyboard scrolling within their table region.
 - Ranked exact-name, prefix, substring, and fuzzy suggestions; copied short/full ID and contact searches; visible birth dates/contact details and full-ID clipboard copying on profiles; retained results with their original query while a response is held; and explicit navigation to the chosen patient.
+- Live dashboard status counts/percentages and filtering links; keyboard theme switching, preference persistence across navigation/reload, mobile containment, and system-theme/empty-chart behavior.
 - Clock-controlled debounce checks: no requests before the final 750ms pause, immediate Enter without duplicate requests, draft preservation with filters, and cancellation when navigating away and back.
 
 To reproduce browser checks against the running local Compose stack:
@@ -170,7 +173,7 @@ npm run test:e2e
 
 Browser tests accept only loopback origins and create/clean up their own patient. CI uploads the HTML report and failure evidence as the `browser-verification` artifact. The HTTP smoke check verifies API responses and SPA HTML; it does not operate React forms. Docker is unavailable on the development machine, so the complete container and Chromium check runs on GitHub's Ubuntu runner.
 
-The [full-ID UI verification run](https://github.com/liamcox/ascertain-full-stack-take-home/actions/runs/40732977416) passes all three jobs, including all four browser tests. See the [verification workflow](https://github.com/liamcox/ascertain-full-stack-take-home/actions/workflows/verify.yml) for newer results and the [reviewer walkthrough](docs/reviewer-walkthrough.md) for a short manual journey. Hosted browser checks cover read workflows; mutation evidence comes from the isolated Compose browser suite. Mobile containment is checked after patient rows load.
+See the [theme and chart verification run](https://github.com/liamcox/ascertain-full-stack-take-home/actions/runs/40739227526) for this change and the [verification workflow](https://github.com/liamcox/ascertain-full-stack-take-home/actions/workflows/verify.yml) for newer results and the [reviewer walkthrough](docs/reviewer-walkthrough.md) for a short manual journey. Hosted browser checks cover read workflows; mutation evidence comes from the isolated Compose browser suite. Mobile containment is checked after patient rows load.
 
 Python direct and transitive dependencies are constrained by the committed requirements lock files; npm uses the committed `package-lock.json`.
 
