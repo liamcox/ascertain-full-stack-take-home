@@ -903,8 +903,50 @@ button {
   align-items: center;
   gap: 10px;
 }
+.directory-search-help {
+  padding: 0 25px 18px;
+  font-size: 12px;
+  line-height: 1.65;
+  color: #5f7068;
+}
+.directory-search-help p {
+  margin: 0;
+}
+.directory-search-help p + p {
+  margin-top: 7px;
+}
+.directory-searching {
+  min-height: 260px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #52685b;
+  font-size: 13px;
+  border-top: 1px solid var(--line);
+}
+.directory-searching p {
+  margin: 0;
+}
+.search-match {
+  display: inline-block;
+  margin: 10px 0 0 49px;
+  padding: 3px 7px;
+  color: #285b49;
+  background: #edf5ee;
+  border: 1px solid #d6e5d9;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 550;
+  line-height: 1.5;
+}
+.search-match-fuzzy {
+  color: #79541c;
+  background: #fff7e8;
+  border-color: #e8d3af;
+}
 .patient-search {
-  width: 300px;
+  width: 340px;
 }
 .patient-search .mantine-Input-input {
   font-size: 12px;
@@ -2047,6 +2089,10 @@ button {
   .directory-toolbar {
     padding: 0 17px 19px;
     gap: 10px;
+  }
+  .directory-search-help {
+    padding-left: 17px;
+    padding-right: 17px;
   }
   .patient-search {
     min-width: 100%;

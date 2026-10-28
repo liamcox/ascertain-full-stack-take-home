@@ -19,6 +19,14 @@ export interface Patient {
 }
 
 export type PatientInput = Omit<Patient, 'id' | 'age' | 'created_at' | 'updated_at'>;
+export interface PatientSearchMatch {
+  kind: 'exact_id' | 'exact_name' | 'exact_contact' | 'name_prefix' | 'substring' | 'fuzzy';
+  label: string;
+  score: number;
+}
+export interface PatientSearchResult extends Patient {
+  search_match: PatientSearchMatch | null;
+}
 export interface PatientNote {
   id: string;
   patient_id: string;
@@ -31,7 +39,7 @@ export interface PatientSummary {
   generated_at: string;
 }
 export interface PatientPage {
-  items: Patient[];
+  items: PatientSearchResult[];
   total: number;
   page: number;
   page_size: number;
