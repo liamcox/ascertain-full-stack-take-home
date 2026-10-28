@@ -173,7 +173,7 @@ npm run test:e2e
 
 Browser tests accept only loopback origins and create/clean up their own patient. CI uploads the HTML report and failure evidence as the `browser-verification` artifact. The HTTP smoke check verifies API responses and SPA HTML; it does not operate React forms. Docker is unavailable on the development machine, so the complete container and Chromium check runs on GitHub's Ubuntu runner.
 
-See the [theme and chart verification run](https://github.com/liamcox/ascertain-full-stack-take-home/actions/runs/40739227526) for this change and the [verification workflow](https://github.com/liamcox/ascertain-full-stack-take-home/actions/workflows/verify.yml) for newer results and the [reviewer walkthrough](docs/reviewer-walkthrough.md) for a short manual journey. Hosted browser checks cover read workflows; mutation evidence comes from the isolated Compose browser suite. Mobile containment is checked after patient rows load.
+See the [theme and chart verification run](https://github.com/liamcox/ascertain-full-stack-take-home/actions/runs/40739839832) for this change and the [verification workflow](https://github.com/liamcox/ascertain-full-stack-take-home/actions/workflows/verify.yml) for newer results and the [reviewer walkthrough](docs/reviewer-walkthrough.md) for a short manual journey. Hosted browser checks cover read workflows; mutation evidence comes from the isolated Compose browser suite. Mobile containment is checked after patient rows load.
 
 Python direct and transitive dependencies are constrained by the committed requirements lock files; npm uses the committed `package-lock.json`.
 
