@@ -161,9 +161,11 @@ test('empty status chart stays finite and fits mobile while following the system
     );
   }
   await expect(chart).not.toContainText(/NaN|Infinity/);
-  expect(await chart.locator('svg').evaluate((element) => element.outerHTML)).not.toMatch(
-    /NaN|Infinity/,
-  );
+  expect(
+    await chart
+      .locator('.patient-status-chart__visual > svg')
+      .evaluate((element) => element.outerHTML),
+  ).not.toMatch(/NaN|Infinity/);
   await expect(page.locator('html')).toHaveAttribute('data-mantine-color-scheme', 'dark');
   await expectPageContained(page);
   expect(await page.evaluate(() => localStorage.getItem('ascertain-color-scheme'))).toBeNull();
