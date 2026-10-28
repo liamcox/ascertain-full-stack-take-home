@@ -1,12 +1,21 @@
 import { createContext, useContext, useState } from 'react';
-import { ActionIcon, Badge, Button, Drawer } from '@mantine/core';
+import {
+  ActionIcon,
+  Badge,
+  Button,
+  Drawer,
+  useComputedColorScheme,
+  useMantineColorScheme,
+} from '@mantine/core';
 import {
   Activity,
   ChevronRight,
   LayoutDashboard,
   Menu,
+  Moon,
   Plus,
   ShieldCheck,
+  Sun,
   Users,
 } from 'lucide-react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -14,6 +23,26 @@ import { PatientForm } from './PatientForm';
 
 const CreatePatientContext = createContext<() => void>(() => {});
 export const useCreatePatient = () => useContext(CreatePatientContext);
+
+function ThemeToggle() {
+  const { setColorScheme } = useMantineColorScheme();
+  const colorScheme = useComputedColorScheme('light', { getInitialValueInEffect: false });
+  const dark = colorScheme === 'dark';
+  const label = `Switch to ${dark ? 'light' : 'dark'} theme`;
+  return (
+    <Button
+      variant="default"
+      size="xs"
+      className="theme-toggle"
+      aria-label={label}
+      title={label}
+      leftSection={dark ? <Sun size={15} /> : <Moon size={15} />}
+      onClick={() => setColorScheme(dark ? 'light' : 'dark')}
+    >
+      {dark ? 'Light mode' : 'Dark mode'}
+    </Button>
+  );
+}
 
 function Brand() {
   return (
@@ -115,6 +144,7 @@ export function Layout() {
               )}
             </div>
             <div className="topbar-right">
+              <ThemeToggle />
               <span className="demo-indicator">
                 <span />
                 Fictional demo data
