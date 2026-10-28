@@ -33,6 +33,7 @@ test('patient forms, persisted notes, summaries, and deletion work together', as
   page,
   request,
 }) => {
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   const firstName = 'Browser';
   const lastName = `Regression${Date.now()}`;
   const name = `${firstName} ${lastName}`;
@@ -69,6 +70,11 @@ test('patient forms, persisted notes, summaries, and deletion work together', as
     const detailPath = `/patients/${patientId}`;
     await expect(page).toHaveURL(new RegExp(`${detailPath}$`));
     await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
+    const recordDetails = page.getByRole('region', { name: 'Record details' });
+    await expect(recordDetails.locator('.patient-record-id')).toHaveText(patientId);
+    await recordDetails.getByRole('button', { name: 'Copy ID', exact: true }).click();
+    await expect(recordDetails.getByRole('button', { name: 'Copied', exact: true })).toBeVisible();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(patientId);
 
     await page.getByRole('button', { name: 'Edit patient', exact: true }).click();
     const editForm = page.getByRole('dialog');

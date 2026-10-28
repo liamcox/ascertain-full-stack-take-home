@@ -69,10 +69,10 @@ test('ranked suggestions show identity details and require an explicit patient c
     await expect(exactRow).toContainText('Jun 15, 1985');
     await expect(fuzzyRow).toContainText('Mar 4, 1972');
     await expect(fuzzyRow).toContainText(`rank.fuzzy.${suffix}@example.com`);
-    await expect(fuzzyRow).toContainText(ids[3].slice(0, 8).toUpperCase());
+    await expect(fuzzyRow).not.toContainText(ids[3].slice(0, 8).toUpperCase());
     await expect(fuzzyRow.getByRole('link', { name: /^View / })).toHaveAttribute(
-      'aria-label',
-      new RegExp(ids[3]),
+      'href',
+      `/patients/${ids[3]}`,
     );
     await search.press('Enter');
     await expect(page).toHaveURL(/\/patients\?/);
