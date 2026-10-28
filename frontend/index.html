@@ -4,6 +4,34 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#115d53" />
+    <style>
+      html {
+        background: #f7f9f8;
+        color-scheme: light;
+      }
+      html[data-mantine-color-scheme='dark'] {
+        background: #101b16;
+        color-scheme: dark;
+      }
+    </style>
+    <script>
+      (() => {
+        let preference = 'auto';
+        try {
+          const saved = localStorage.getItem('ascertain-color-scheme');
+          if (saved === 'light' || saved === 'dark' || saved === 'auto') preference = saved;
+        } catch {
+          // The theme remains usable when browser storage is unavailable.
+        }
+        const scheme =
+          preference === 'auto'
+            ? matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light'
+            : preference;
+        document.documentElement.setAttribute('data-mantine-color-scheme', scheme);
+      })();
+    </script>
     <meta
       name="description"
       content="Ascertain Care — a patient management workspace. Fictional demonstration data only."
