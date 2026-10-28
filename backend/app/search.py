@@ -25,6 +25,32 @@ MATCH_LABELS = {
     "substring": "Contains search",
     "fuzzy": "Possible match",
 }
+ID_LABEL = re.compile(r"^(?:patient\s+id|id)(?=$|[\s:#])", re.IGNORECASE)
+
+
+def normalize_patient_id(value: str) -> tuple[str | None, bool]:
+    """Recognize a whole copied ID without rewriting ordinary text searches.
+
+    Labels need a distinct boundary, so names such as Ida and Idris stay names.
+    Only whitespace, one optional label separator, balanced braces, and normal
+    UUID grouping are accepted. Arbitrary punctuation or multiple IDs fail
+    closed rather than extracting a possibly unintended patient identifier.
+    """
+    label = ID_LABEL.match(value.strip())
+    if len(value) > 200:
+        return None, bool(label)
+    candidate = value.strip()[label.end():].strip() if label else value.strip()
+    if candidate.startswith((":", "#")):
+        candidate = candidate[1:].strip()
+    if candidate.startswith("{") and candidate.endswith("}"):
+        candidate = candidate[1:-1]
+    candidate = re.sub(r"\s+", "", candidate).lower()
+
+    if re.fullmatch(r"[0-9a-f]{8}|[0-9a-f]{4}-[0-9a-f]{4}", candidate):
+        return candidate.replace("-", ""), bool(label)
+    if re.fullmatch(r"[0-9a-f]{32}|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", candidate):
+        return str(UUID(candidate)), bool(label)
+    return None, bool(label)
 
 
 def sqlite_regexp_replace(value: str | None, pattern: str, replacement: str, flags: str = "") -> str:
@@ -126,16 +152,13 @@ def ranked_search(search: str, dialect: str) -> RankedSearch:
     conditions = func.lower(cast(Patient.conditions, String))
 
     id_match = false()
-    is_short_id = bool(re.fullmatch(r"[0-9a-f]{8}", value))
-    is_full_id = False
+    normalized_id, labelled_id = normalize_patient_id(search)
+    is_short_id = normalized_id is not None and len(normalized_id) == 8
+    is_full_id = normalized_id is not None and not is_short_id
     if is_short_id:
-        id_match = short_id_expression() == value
-    elif re.fullmatch(r"[0-9a-f-]{32,36}", value):
-        try:
-            id_match = Patient.id == str(UUID(value))
-            is_full_id = True
-        except ValueError:
-            pass
+        id_match = short_id_expression() == normalized_id
+    elif is_full_id:
+        id_match = Patient.id == normalized_id
 
     exact_name = full_name == value
     exact_contact = email == value
@@ -152,6 +175,7 @@ def ranked_search(search: str, dialect: str) -> RankedSearch:
     allow_fuzzy = (
         not is_short_id
         and not is_full_id
+        and not labelled_id
         and sum(character.isalpha() for character in value) >= 3
         and all(character.isalpha() or character in " '-" for character in value)
     )
