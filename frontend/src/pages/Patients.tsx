@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { ActionIcon, Button, Loader, Pagination, Select, TextInput } from '@mantine/core';
 import { Filter, Search, SlidersHorizontal, X } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
-import { api } from '../api';
+import { useLocation, useSearchParams } from 'react-router-dom';
+import { api, type PatientPage } from '../api';
+import { statusLabels } from '../format';
 import {
   EmptyState,
   ErrorState,
@@ -15,10 +16,39 @@ import { AddPatientButton, useCreatePatient } from '../components/Layout';
 
 const allowedSorts = ['name', 'age', 'last_visit', 'status'];
 const allowedStatuses = ['active', 'follow_up', 'inactive'];
+const sortLabels: Record<string, string> = {
+  name: 'Name',
+  age: 'Age',
+  last_visit: 'Last visit',
+  status: 'Status',
+};
+
+interface DirectoryContext {
+  search: string;
+  status: string;
+  sortBy: string;
+  sortOrder: string;
+  page: number;
+}
+
+interface DirectoryResults {
+  records: PatientPage;
+  context: DirectoryContext;
+}
+
+function resultsLabel(context: DirectoryContext) {
+  if (context.search) return `Results for “${context.search}”`;
+  return context.status ? 'Showing filtered patients' : 'Showing all patients';
+}
 
 export function PatientsPage() {
   const [params, setParams] = useSearchParams();
+  const location = useLocation();
   const [search, setSearch] = useState(params.get('search') || '');
+  const [lastCompleted, setLastCompleted] = useState<DirectoryResults>();
+  const searchTimer = useRef<number | null>(null);
+  const composing = useRef(false);
+  const pendingControlUpdates = useRef<Record<string, string> | null>(null);
   const openCreate = useCreatePatient();
   const rawPage = Number(params.get('page') || 1);
   const page = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : 1;
@@ -31,46 +61,64 @@ export function PatientsPage() {
   const sortOrder = params.get('sort_order') === 'desc' ? 'desc' : 'asc';
   const pageSize = 12;
   const serverSearch = params.get('search') || '';
-  const filtered = Boolean(search.trim() || serverSearch || status);
-  const ranked = Boolean(serverSearch);
+  const hasDraft = search.trim() !== serverSearch;
+  const hasFilters = Boolean(search.trim() || serverSearch || status);
+  const cancelPendingSearch = useCallback(() => {
+    if (searchTimer.current !== null) {
+      window.clearTimeout(searchTimer.current);
+      searchTimer.current = null;
+    }
+  }, []);
   function updateParams(updates: Record<string, string>, resetPage = true) {
+    const hasExplicitSearch = Object.prototype.hasOwnProperty.call(updates, 'search');
+    if (composing.current && !hasExplicitSearch) {
+      // Preserve filter/sort intent until the IME has produced its final text.
+      pendingControlUpdates.current = { ...pendingControlUpdates.current, ...updates };
+      return;
+    }
+    cancelPendingSearch();
+    const commitDraft = !hasExplicitSearch && hasDraft;
+    const nextUpdates = commitDraft ? { ...updates, search: search.trim() } : updates;
+    if (commitDraft) setSearch(search.trim());
     setParams(
       (current) => {
         const next = new URLSearchParams(current);
-        for (const [key, value] of Object.entries(updates)) {
+        for (const [key, value] of Object.entries(nextUpdates)) {
           if (value) next.set(key, value);
           else next.delete(key);
         }
-        if (resetPage) next.delete('page');
+        if (resetPage || commitDraft) next.delete('page');
         return next;
       },
       { replace: true },
     );
   }
+  function commitSearch(value: string) {
+    cancelPendingSearch();
+    composing.current = false;
+    pendingControlUpdates.current = null;
+    const trimmed = value.trim();
+    setSearch(trimmed);
+    if (trimmed === serverSearch) return;
+    updateParams({ search: trimmed });
+  }
+  function scheduleSearch(value: string) {
+    cancelPendingSearch();
+    if (composing.current || value.trim() === serverSearch) return;
+    searchTimer.current = window.setTimeout(() => commitSearch(value), 750);
+  }
   useEffect(() => {
+    // URL navigation owns the committed query and cancels any obsolete draft timer.
+    cancelPendingSearch();
+    composing.current = false;
+    pendingControlUpdates.current = null;
     setSearch(serverSearch);
-  }, [serverSearch]);
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setParams(
-        (current) => {
-          const value = search.trim();
-          if ((current.get('search') || '') === value) return current;
-          const next = new URLSearchParams(current);
-          if (value) next.set('search', value);
-          else next.delete('search');
-          next.delete('page');
-          return next;
-        },
-        { replace: true },
-      );
-    }, 350);
-    return () => window.clearTimeout(timer);
-  }, [search, setParams]);
+    return cancelPendingSearch;
+  }, [location.key, serverSearch, cancelPendingSearch]);
   const query = useQuery({
     queryKey: ['patients', serverSearch, status, sortBy, sortOrder, page],
-    queryFn: ({ signal }) =>
-      api.patients(
+    queryFn: async ({ signal }): Promise<DirectoryResults> => ({
+      records: await api.patients(
         {
           page,
           page_size: pageSize,
@@ -81,25 +129,52 @@ export function PatientsPage() {
         },
         signal,
       ),
+      context: { search: serverSearch, status, sortBy, sortOrder, page },
+    }),
     placeholderData: keepPreviousData,
   });
-  const data = query.data;
-  const isDebouncing = search.trim() !== serverSearch;
-  const resultsPending = isDebouncing || query.isPlaceholderData || query.isPending;
-  const searching = resultsPending && Boolean(search.trim() || serverSearch);
   useEffect(() => {
-    if (data && !resultsPending && page > Math.max(1, data.total_pages)) {
+    if (query.data && !query.isPlaceholderData) setLastCompleted(query.data);
+  }, [query.data, query.isPlaceholderData]);
+  // Keep records and their original request context together, including after a failed update.
+  const displayed = query.data ?? lastCompleted;
+  const data = displayed?.records;
+  const displayedContext = displayed?.context;
+  const filtered = Boolean(displayedContext?.search || displayedContext?.status);
+  const controlsDisabled = query.isFetching || query.isPlaceholderData || query.isError;
+  useEffect(() => {
+    const completed = query.data?.records;
+    if (
+      completed &&
+      !query.isPlaceholderData &&
+      !query.isFetching &&
+      !query.isError &&
+      search.trim() === serverSearch &&
+      page > Math.max(1, completed.total_pages)
+    ) {
       setParams(
         (current) => {
           const next = new URLSearchParams(current);
-          next.set('page', String(Math.max(1, data.total_pages)));
+          next.set('page', String(Math.max(1, completed.total_pages)));
           return next;
         },
         { replace: true },
       );
     }
-  }, [data, page, resultsPending, setParams]);
+  }, [
+    query.data,
+    query.isPlaceholderData,
+    query.isFetching,
+    query.isError,
+    page,
+    search,
+    serverSearch,
+    setParams,
+  ]);
   function clearFilters() {
+    cancelPendingSearch();
+    composing.current = false;
+    pendingControlUpdates.current = null;
     setSearch('');
     updateParams({ search: '', status: '' });
   }
@@ -116,10 +191,7 @@ export function PatientsPage() {
         <div className="directory-top">
           <div>
             <h2>
-              Patient directory{' '}
-              <span className="count-badge">
-                {!resultsPending && !query.isError ? (data?.total ?? '—') : '—'}
-              </span>
+              Patient directory <span className="count-badge">{data?.total ?? '—'}</span>
             </h2>
             <p>
               {filtered
@@ -138,7 +210,35 @@ export function PatientsPage() {
             placeholder="Search ID, name, email, phone…"
             maxLength={200}
             value={search}
-            onChange={(event) => setSearch(event.currentTarget.value)}
+            onChange={(event) => {
+              const value = event.currentTarget.value;
+              setSearch(value);
+              scheduleSearch(value);
+            }}
+            onKeyDown={(event) => {
+              if (
+                event.key === 'Enter' &&
+                !composing.current &&
+                !event.nativeEvent.isComposing &&
+                event.nativeEvent.keyCode !== 229
+              ) {
+                event.preventDefault();
+                commitSearch(event.currentTarget.value);
+              }
+            }}
+            onCompositionStart={() => {
+              composing.current = true;
+              cancelPendingSearch();
+            }}
+            onCompositionEnd={(event) => {
+              composing.current = false;
+              const value = event.currentTarget.value;
+              setSearch(value);
+              const pendingUpdates = pendingControlUpdates.current;
+              pendingControlUpdates.current = null;
+              if (pendingUpdates) updateParams({ ...pendingUpdates, search: value.trim() });
+              else scheduleSearch(value);
+            }}
             leftSection={<Search size={17} />}
             rightSection={
               search ? (
@@ -146,7 +246,7 @@ export function PatientsPage() {
                   variant="subtle"
                   color="gray"
                   size="sm"
-                  onClick={() => setSearch('')}
+                  onClick={() => commitSearch('')}
                   aria-label="Clear search"
                 >
                   <X size={14} />
@@ -169,102 +269,132 @@ export function PatientsPage() {
             onChange={(value) => updateParams({ status: value || '' })}
             allowDeselect={false}
           />
-          {filtered && (
-            <Button variant="subtle" color="gray" size="xs" onClick={clearFilters}>
-              Clear filters
-            </Button>
-          )}
+          <Button
+            variant="subtle"
+            color="gray"
+            size="xs"
+            onClick={clearFilters}
+            disabled={!hasFilters}
+          >
+            Clear filters
+          </Button>
+        </div>
+        <div className="directory-search-help" id="patient-search-help">
+          <p>Search ID, name, email, phone, or condition. Press Enter to search immediately.</p>
+          <details>
+            <summary>How matches are ordered</summary>
+            <p>
+              Exact IDs appear first, then exact names or contacts, names starting with your search,
+              other matches, and similar names. Column sorting breaks relevance ties. Check date of
+              birth, ID, and contact details before opening a possible match.
+            </p>
+          </details>
+        </div>
+        <div className="directory-results-heading">
+          <div className="directory-results-context">
+            <p
+              className="directory-results-label"
+              title={displayedContext ? resultsLabel(displayedContext) : undefined}
+            >
+              {displayedContext ? resultsLabel(displayedContext) : 'Loading patients…'}
+            </p>
+            <p className="directory-results-meta">
+              {displayedContext ? (
+                <>
+                  {displayedContext.status
+                    ? statusLabels[displayedContext.status as keyof typeof statusLabels]
+                    : 'All statuses'}
+                  {' · '}
+                  {displayedContext.search ? 'Tie sort: ' : 'Sort: '}
+                  {sortLabels[displayedContext.sortBy]},{' '}
+                  {displayedContext.sortOrder === 'asc' ? 'ascending' : 'descending'}
+                  {' · '}Page {data?.page}
+                </>
+              ) : (
+                '\u00a0'
+              )}
+            </p>
+          </div>
           <span className="directory-updating" role="status" aria-live="polite">
-            {resultsPending || query.isFetching ? (
+            {query.isFetching && (
               <>
                 <Loader size={12} color="teal" />
-                <span>{searching ? 'Searching…' : 'Updating…'}</span>
-              </>
-            ) : (
-              <>
-                <span className="soft-dot" />
-                Live records
+                <span>Updating results…</span>
               </>
             )}
           </span>
         </div>
-        <div className="directory-search-help" id="patient-search-help">
-          <p>Search by patient ID, name, email, phone, or condition.</p>
-          {(search.trim() || serverSearch) && (
-            <>
-              <p>
-                Exact ID matches appear first, followed by exact names or contacts, names starting
-                with your search, other matches, then similar names. Column sorting breaks relevance
-                ties.
-              </p>
-              <p>
-                Possible match suggests a similar name. Check date of birth, ID, and contact details
-                before opening.
-              </p>
-            </>
-          )}
-        </div>
-        {resultsPending ? (
-          searching ? (
-            <div className="directory-searching" role="status" aria-live="polite">
-              <Loader size={20} color="teal" />
-              <p>Searching…</p>
-            </div>
-          ) : (
-            <TableSkeleton rows={8} />
-          )
-        ) : query.isError ? (
+        {query.isError && (
           <div className="inset-error">
-            <ErrorState error={query.error} retry={() => void query.refetch()} />
+            <ErrorState
+              title={
+                serverSearch
+                  ? `Couldn’t load results for “${serverSearch}”`
+                  : 'Couldn’t update patient results'
+              }
+              error={query.error}
+              retry={() => void query.refetch()}
+            />
+            {data && <p>The previous results remain below with their original search details.</p>}
           </div>
-        ) : data?.items.length ? (
-          <div aria-busy={query.isFetching}>
+        )}
+        <div className="directory-results" aria-busy={query.isFetching}>
+          {!data ? (
+            query.isError ? null : (
+              <TableSkeleton rows={8} />
+            )
+          ) : data.items.length ? (
             <PatientTable
               patients={data.items}
-              sortBy={sortBy}
-              sortOrder={sortOrder}
-              ranked={ranked}
+              sortBy={displayedContext?.sortBy}
+              sortOrder={displayedContext?.sortOrder}
+              ranked={Boolean(displayedContext?.search)}
+              sortDisabled={controlsDisabled}
               onSort={(field) =>
                 updateParams({
                   sort_by: field,
-                  sort_order: sortBy === field && sortOrder === 'asc' ? 'desc' : 'asc',
+                  sort_order:
+                    displayedContext?.sortBy === field && displayedContext.sortOrder === 'asc'
+                      ? 'desc'
+                      : 'asc',
                 })
               }
             />
-          </div>
-        ) : (
-          <EmptyState
-            title={filtered ? 'No patients match your search' : 'Good care begins with a person'}
-            action={
-              <Button
-                variant={filtered ? 'light' : 'filled'}
-                onClick={filtered ? clearFilters : openCreate}
-              >
-                {filtered ? 'Clear filters' : 'Add your first patient'}
-              </Button>
-            }
-          >
-            {filtered
-              ? 'Try a different ID, name, contact detail, condition, or status.'
-              : 'Create your first patient record to get started.'}
-          </EmptyState>
-        )}
-        {data && !resultsPending && !query.isError && data.total > 0 && (
+          ) : (
+            <EmptyState
+              title={filtered ? 'No patients match your search' : 'Good care begins with a person'}
+              action={
+                <Button
+                  variant={filtered ? 'light' : 'filled'}
+                  onClick={filtered ? clearFilters : openCreate}
+                >
+                  {filtered ? 'Clear filters' : 'Add your first patient'}
+                </Button>
+              }
+            >
+              {filtered
+                ? 'Try a different ID, name, contact detail, condition, or status.'
+                : 'Create your first patient record to get started.'}
+            </EmptyState>
+          )}
+        </div>
+        {data && data.total > 0 && (
           <div className="pagination-footer">
             <span>
               Showing{' '}
               <strong>
-                {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, data.total)}
+                {(data.page - 1) * data.page_size + 1}–
+                {Math.min(data.page * data.page_size, data.total)}
               </strong>{' '}
               of <strong>{data.total}</strong> patients
             </span>
             <Pagination
               total={Math.max(1, data.total_pages)}
-              value={page}
+              value={data.page}
               onChange={(next) => updateParams({ page: String(next) }, false)}
               size="sm"
               radius="md"
-              disabled={query.isPlaceholderData}
+              disabled={controlsDisabled || hasDraft || composing.current}
               aria-label="Patient pages"
               siblings={1}
             />
