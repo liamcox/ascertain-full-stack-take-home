@@ -63,6 +63,92 @@ def test_full_compact_and_short_ids_take_priority_and_collisions_are_visible(cli
     assert [item["search_match"]["label"] for item in short["items"][:2]] == ["Exact short ID", "Exact short ID"]
 
 
+def test_copied_id_labels_spacing_braces_and_grouping_are_normalized(client, profile, db_engine):
+    patient = create_patient(client, profile)
+    patient_id = "1234abcd-0000-4000-8000-000000000001"
+    with Session(db_engine) as session:
+        session.get(Patient, patient["id"]).id = patient_id
+        session.commit()
+
+    short_forms = [
+        "ID 1234ABCD",
+        "id:1234abcd",
+        "Patient ID # 1234abcd",
+        "  PATIENT\tID : { 1234 abcd }  ",
+        "ID 1234-abcd",
+        "#1234ABCD",
+        "{1234abcd}",
+    ]
+    full_forms = [
+        f"Patient ID {patient_id.upper()}",
+        f"id: {{{patient_id}}}",
+        "Patient ID # 1234ABCD 0000 4000 8000 000000000001",
+        "ID { 1234abcd - 0000 - 4000 - 8000 - 000000000001 }",
+        f"#{{{UUID(patient_id).hex}}}",
+    ]
+    for query in [*short_forms, *full_forms]:
+        result = search(client, query)
+        assert result["total"] == 1, query
+        assert result["items"][0]["id"] == patient_id, query
+        expected_label = "Exact short ID" if query in short_forms else "Exact ID"
+        assert result["items"][0]["search_match"] == {"kind": "exact_id", "label": expected_label, "score": 1.0}, query
+
+
+def test_labelled_short_id_collisions_keep_exact_matches_ahead_of_literal_text(client, profile, db_engine):
+    first = create_patient(client, profile, first_name="Avery")
+    second = create_patient(client, profile, first_name="Jordan")
+    ids = ["1234abcd-0000-4000-8000-000000000001", "1234abcd-0000-4000-8000-000000000002"]
+    with Session(db_engine) as session:
+        session.get(Patient, first["id"]).id = ids[0]
+        session.get(Patient, second["id"]).id = ids[1]
+        session.commit()
+    literal = create_patient(client, profile, first_name="Zelda", last_name="Zulu", conditions=["ID 1234ABCD"])
+    result = search(client, "ID 1234ABCD", sort_order="desc")
+    assert [item["id"] for item in result["items"]] == [ids[1], ids[0], literal["id"]]
+    assert [item["search_match"]["kind"] for item in result["items"]] == ["exact_id", "exact_id", "substring"]
+    page = search(client, "ID 1234ABCD", page=2, page_size=1, sort_order="desc")
+    assert page["total"] == 3 and page["items"][0]["id"] == ids[0]
+
+
+def test_invalid_copied_ids_are_not_partially_extracted_or_fuzzily_expanded(client, profile, db_engine):
+    patient = create_patient(client, profile, first_name="Id", last_name="Harper")
+    patient_id = "1234abcd-0000-4000-8000-000000000001"
+    with Session(db_engine) as session:
+        session.get(Patient, patient["id"]).id = patient_id
+        session.commit()
+    invalid_queries = [
+        "ID 1234abc",  # Incomplete IDs never become prefix lookups.
+        "ID 1234abcde",
+        "ID1234abcd",  # A label requires its own boundary.
+        "patientid 1234abcd",
+        "ID: #1234abcd",  # Only one optional label separator.
+        "ID {1234abcd",
+        "ID {{1234abcd}}",
+        "ID 1234abcd!",
+        "ID 12-34-abcd",  # Only four-plus-four or normal UUID grouping.
+        "ID 1234abcd--0000-4000-8000-000000000001",
+        f"ID 1234abcd {patient_id}",  # More than one copied ID is ambiguous.
+        "ID Harpr",  # An explicitly labelled invalid ID never invokes fuzzy search.
+    ]
+    for query in invalid_queries:
+        assert search(client, query)["total"] == 0, query
+
+    literal = create_patient(client, profile, first_name="Taylor", conditions=["ID 1234abcd!"])
+    literal_result = search(client, "ID 1234abcd!")
+    assert [item["id"] for item in literal_result["items"]] == [literal["id"]]
+    assert literal_result["items"][0]["search_match"]["kind"] == "substring"
+
+
+def test_id_labels_never_strip_the_start_of_ordinary_names(client, profile):
+    ida = create_patient(client, profile, first_name="Ida", last_name="Bennett")
+    idris = create_patient(client, profile, first_name="Idris", last_name="Jones")
+    for query, patient in (("Ida", ida), ("Idris Jones", idris)):
+        result = search(client, query)
+        assert result["items"][0]["id"] == patient["id"]
+        assert result["items"][0]["search_match"]["kind"] in {"name_prefix", "exact_name"}
+    assert search(client, "Idri")["items"][0]["id"] == idris["id"]
+
+
 def test_exact_contacts_normalize_case_and_phone_format_and_keep_duplicates(client, profile):
     first = create_patient(client, profile, first_name="Zelda", email="Shared@example.com", phone="+1 (202) 555-0123")
     second = create_patient(client, profile, first_name="Avery", email="shared@example.com", phone="1-202-555-0123")
