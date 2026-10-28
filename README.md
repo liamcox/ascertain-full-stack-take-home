@@ -93,7 +93,7 @@ Directory parameters: `search`, `status`, `page` (1+), `page_size` (1–100; def
 
 Nonblank searches rank candidates in this order, before pagination:
 
-1. Exact full UUID (canonical or compact), or the displayed eight-character short ID. Short IDs are not guaranteed unique; collisions return every matching patient.
+1. Exact full UUID (canonical or compact), or the displayed eight-character short ID. Copied `ID` / `Patient ID` labels, optional `:` or `#`, whitespace, braces, and validated UUID/short-ID grouping are accepted; the complete remaining value must be a valid short or full ID. Short IDs are not guaranteed unique; collisions return every matching patient.
 2. Exact full name or contact. Name matching ignores case and repeated whitespace; email ignores case, and phone matching ignores formatting characters.
 3. A full, first, or last name starting with the search.
 4. A substring in the full name, email, phone, or recorded conditions. SQL wildcard characters are treated literally.
@@ -101,7 +101,7 @@ Nonblank searches rank candidates in this order, before pagination:
 
 The chosen column sort breaks relevance ties, followed by stable ID ordering. With no search, column sorting applies normally. Status filtering applies to all candidate types. Each list item carries `search_match` (`kind`, `label`, and `score`), or `null` for an unfiltered directory. The fuzzy score is text similarity, not a probability that two records identify the same person; other tiers use 1.0. The UI displays labels rather than numerical confidence.
 
-Rows show date of birth, short ID, and contact details, with the full ID accessible. A similar name never selects or opens a patient automatically. During the 350ms debounce and pending search response, old rows and counts are hidden rather than presented as matches for the new term. Search state remains in the URL.
+Rows show date of birth, short ID, and contact details, with the full ID accessible. A similar name never selects or opens a patient automatically. Typing waits for a 750ms pause before issuing a search; Enter commits immediately, and input-method composition finishes before searching. Previous rows and counts remain visible with the original completed query, filter, sort, and page labels until the new result is ready. A small fixed-space updating indicator appears only during an actual request. Changing a filter or sort commits a pending name together with that change; browser navigation cancels abandoned drafts. Search state remains in the URL. Failed updates show an error and retry while preserving clearly labelled previous results. Superseded requests use abort signals, and results remain scoped to their query key.
 
 ## Architecture and tradeoffs
 
@@ -150,13 +150,14 @@ python3 scripts/smoke_test.py --api-base http://127.0.0.1:3000/api --frontend-ur
 
 This checks the frontend API proxy, pagination, patient CRUD and persistence, timestamped notes, summaries, and root/detail SPA HTML. It modifies only a disposable patient fixture it creates and removes that fixture during cleanup; existing patient records are only read.
 
-The committed verification workflow checks 48 API tests against PostgreSQL 17 and repeats the suite on isolated SQLite databases, including search tier order, normalization, typo suggestions, literal wildcard behavior, and filtered pagination. It runs frontend lint, formatting, typechecking, a production build, and `npm audit --audit-level=moderate`. The updated lock file currently reports zero known vulnerabilities.
+The committed verification workflow checks 52 API tests against PostgreSQL 17 and repeats the suite on isolated SQLite databases, including search tier order, normalization, typo suggestions, literal wildcard behavior, and filtered pagination. It runs frontend lint, formatting, typechecking, a production build, and `npm audit --audit-level=moderate`. The updated lock file currently reports zero known vulnerabilities.
 
-The Compose job builds and starts the three services, runs the HTTP smoke check through nginx, and then runs Chromium against the actual React application. The three browser tests cover:
+The Compose job builds and starts the three services, runs the HTTP smoke check through nginx, and then runs Chromium against the actual React application. The four browser tests cover:
 
 - Required form validation; create → edit → reload → timestamped note → summary → delete note → regenerate → delete patient → missing-record page.
 - The patient-query refresh after note deletion, plus loaded dashboard, directory, and detail layouts at 390px. Table pages must have no document overflow and must support keyboard scrolling within their table region.
-- Ranked exact-name, prefix, substring, and fuzzy suggestions; exact short ID/contact searches; visible identity details; stale-result suppression; and explicit navigation to the chosen patient.
+- Ranked exact-name, prefix, substring, and fuzzy suggestions; copied short/full ID and contact searches; visible identity details; retained results with their original query while a response is held; and explicit navigation to the chosen patient.
+- Clock-controlled debounce checks: no requests before the final 750ms pause, immediate Enter without duplicate requests, draft preservation with filters, and cancellation when navigating away and back.
 
 To reproduce browser checks against the running local Compose stack:
 
@@ -169,7 +170,7 @@ npm run test:e2e
 
 Browser tests accept only loopback origins and create/clean up their own patient. CI uploads the HTML report and failure evidence as the `browser-verification` artifact. The HTTP smoke check verifies API responses and SPA HTML; it does not operate React forms. Docker is unavailable on the development machine, so the complete container and Chromium check runs on GitHub's Ubuntu runner.
 
-The [ranked-search CI run](https://github.com/liamcox/ascertain-full-stack-take-home/actions/runs/40723164495) passes all three jobs, including all three browser tests. See the [verification workflow](https://github.com/liamcox/ascertain-full-stack-take-home/actions/workflows/verify.yml) for newer results and the [reviewer walkthrough](docs/reviewer-walkthrough.md) for a short manual journey. Hosted browser checks cover read workflows; mutation evidence comes from the isolated Compose browser suite. Mobile containment is checked after patient rows load.
+The [smooth-search CI run](https://github.com/liamcox/ascertain-full-stack-take-home/actions/runs/40728236788) passes all three jobs, including all four browser tests. See the [verification workflow](https://github.com/liamcox/ascertain-full-stack-take-home/actions/workflows/verify.yml) for newer results and the [reviewer walkthrough](docs/reviewer-walkthrough.md) for a short manual journey. Hosted browser checks cover read workflows; mutation evidence comes from the isolated Compose browser suite. Mobile containment is checked after patient rows load.
 
 Python direct and transitive dependencies are constrained by the committed requirements lock files; npm uses the committed `package-lock.json`.
 
