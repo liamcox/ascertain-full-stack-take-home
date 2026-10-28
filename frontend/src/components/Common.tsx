@@ -11,7 +11,7 @@ import {
 import { Link } from 'react-router-dom';
 import { useId } from 'react';
 import type { ReactNode } from 'react';
-import type { Patient, PatientStatus } from '../api';
+import type { Patient, PatientSearchResult, PatientStatus } from '../api';
 import {
   formatDate,
   fullName,
@@ -151,12 +151,14 @@ export function PatientTable({
   sortOrder,
   onSort,
   compact = false,
+  ranked = false,
 }: {
-  patients: Patient[];
+  patients: (Patient | PatientSearchResult)[];
   sortBy?: string;
   sortOrder?: string;
   onSort?: (field: string) => void;
   compact?: boolean;
+  ranked?: boolean;
 }) {
   const scrollHintId = useId();
   function heading(label: string, field: string) {
@@ -168,6 +170,7 @@ export function PatientTable({
         type="button"
         onClick={() => onSort(field)}
         className={`sort-heading ${sortBy === field ? 'is-sorted' : ''}`}
+        title={ranked ? `Use ${label.toLowerCase()} to break relevance ties` : undefined}
       >
         {label}
         <Icon size={13} />
@@ -187,11 +190,23 @@ export function PatientTable({
         tabIndex={0}
       >
         <table className="patient-table">
+          {ranked && (
+            <caption className="sr-only">
+              Patients ordered by match type, then name similarity for possible matches. Column
+              sorting breaks relevance ties.
+            </caption>
+          )}
           <thead>
             <tr>
               <th
                 aria-sort={
-                  sortBy === 'name' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : undefined
+                  sortBy === 'name'
+                    ? ranked
+                      ? 'other'
+                      : sortOrder === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                    : undefined
                 }
               >
                 {heading('Patient', 'name')}
@@ -200,9 +215,11 @@ export function PatientTable({
                 <th
                   aria-sort={
                     sortBy === 'age'
-                      ? sortOrder === 'asc'
-                        ? 'ascending'
-                        : 'descending'
+                      ? ranked
+                        ? 'other'
+                        : sortOrder === 'asc'
+                          ? 'ascending'
+                          : 'descending'
                       : undefined
                   }
                 >
@@ -212,9 +229,11 @@ export function PatientTable({
               <th
                 aria-sort={
                   sortBy === 'status'
-                    ? sortOrder === 'asc'
-                      ? 'ascending'
-                      : 'descending'
+                    ? ranked
+                      ? 'other'
+                      : sortOrder === 'asc'
+                        ? 'ascending'
+                        : 'descending'
                     : undefined
                 }
               >
@@ -223,9 +242,11 @@ export function PatientTable({
               <th
                 aria-sort={
                   sortBy === 'last_visit'
-                    ? sortOrder === 'asc'
-                      ? 'ascending'
-                      : 'descending'
+                    ? ranked
+                      ? 'other'
+                      : sortOrder === 'asc'
+                        ? 'ascending'
+                        : 'descending'
                     : undefined
                 }
               >
@@ -245,13 +266,28 @@ export function PatientTable({
                     <PatientAvatar patient={patient} />
                     <span>
                       <strong>{fullName(patient)}</strong>
-                      <small>
-                        {compact
-                          ? `${patient.age} years old`
-                          : `ID ${patient.id.slice(0, 8).toUpperCase()}`}
-                      </small>
+                      {compact ? (
+                        <small>{patient.age} years old</small>
+                      ) : (
+                        <>
+                          <small>DOB {formatDate(patient.dob)}</small>
+                          <small title={`Patient ID ${patient.id}`}>
+                            <span aria-hidden="true">
+                              ID {patient.id.slice(0, 8).toUpperCase()}
+                            </span>
+                            <span className="sr-only">Patient ID {patient.id}</span>
+                          </small>
+                        </>
+                      )}
                     </span>
                   </Link>
+                  {!compact && ranked && 'search_match' in patient && patient.search_match && (
+                    <span className={`search-match search-match-${patient.search_match.kind}`}>
+                      {patient.search_match.kind === 'fuzzy'
+                        ? 'Possible match'
+                        : patient.search_match.label}
+                    </span>
+                  )}
                 </td>
                 {!compact && (
                   <td className="age-cell">
@@ -279,7 +315,11 @@ export function PatientTable({
                     to={`/patients/${patient.id}`}
                     variant="subtle"
                     color="gray"
-                    aria-label={`View ${fullName(patient)}`}
+                    aria-label={
+                      compact
+                        ? `View ${fullName(patient)}`
+                        : `View ${fullName(patient)}, born ${formatDate(patient.dob)}, patient ID ${patient.id}`
+                    }
                   >
                     <ArrowRight size={17} />
                   </ActionIcon>
