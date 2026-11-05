@@ -9,9 +9,7 @@ import re
 from dataclasses import dataclass
 from uuid import UUID
 
-from sqlalchemy import Index, String, case, cast, false, func, literal, or_, text
-from sqlalchemy.engine import Engine
-from sqlalchemy.schema import CreateIndex
+from sqlalchemy import String, case, cast, false, func, literal, or_
 
 from .models import Patient
 
@@ -94,43 +92,6 @@ def short_id_expression():
     # Both PostgreSQL UUID text and SQLite's compact UUID storage start with the
     # same eight hex characters displayed by the directory.
     return func.lower(func.substr(cast(Patient.id, String), 1, 8))
-
-
-def ensure_search_indexes(engine: Engine) -> None:
-    if engine.dialect.name != "postgresql":
-        return
-
-    full_name, first_name, last_name = name_expressions()
-    email, phone = contact_expressions()
-    gin_expressions = {
-        "full_name": full_name,
-        "first_name": first_name,
-        "last_name": last_name,
-        "email": email,
-        "phone": func.lower(func.coalesce(Patient.phone, "")),
-        "phone_digits": phone,
-        "conditions": func.lower(cast(Patient.conditions, String)),
-    }
-    indexes = [
-        Index(f"ix_patients_search_{name}_trgm", expression.label("search_value"),
-              postgresql_using="gin", postgresql_ops={"search_value": "public.gin_trgm_ops"})
-        for name, expression in gin_expressions.items()
-    ] + [
-        Index("ix_patients_search_exact_name", full_name),
-        Index("ix_patients_search_exact_email", email),
-        Index("ix_patients_search_exact_phone", phone),
-        Index("ix_patients_search_short_id", short_id_expression()),
-    ]
-    # Keep extension-dependent indexes outside create_all, so each new test
-    # schema gets them only after the database-wide extension is available.
-    for index in indexes:
-        Patient.__table__.indexes.discard(index)
-    with engine.begin() as connection:
-        connection.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public"))
-        for index in indexes:
-            # SQLAlchemy applies schema_translate_map to the table and its
-            # indexes. IF NOT EXISTS makes repeated application starts safe.
-            connection.execute(CreateIndex(index, if_not_exists=True))
 
 
 @dataclass(frozen=True)

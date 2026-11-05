@@ -38,6 +38,7 @@ class Patient(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
     notes: Mapped[list["Note"]] = relationship(back_populates="patient", cascade="all, delete-orphan", passive_deletes=True)
+    encounters: Mapped[list["Encounter"]] = relationship(back_populates="patient", cascade="all, delete-orphan", passive_deletes=True)
 
     __table_args__ = (Index("ix_patients_name", "last_name", "first_name"),)
 
@@ -47,14 +48,28 @@ class Patient(Base):
         return today.year - self.dob.year - ((today.month, today.day) < (self.dob.month, self.dob.day))
 
 
+class Encounter(Base):
+    __tablename__ = "encounters"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    patient_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), ForeignKey("patients.id", ondelete="CASCADE"), index=True)
+    doctor_name: Mapped[str] = mapped_column(String(100))
+    reason: Mapped[str] = mapped_column(Text)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    patient: Mapped[Patient] = relationship(back_populates="encounters")
+    notes: Mapped[list["Note"]] = relationship(back_populates="encounter", passive_deletes=True)
+
+
 class Note(Base):
     __tablename__ = "notes"
 
     id: Mapped[str] = mapped_column(Uuid(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
     patient_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), ForeignKey("patients.id", ondelete="CASCADE"), index=True)
+    encounter_id: Mapped[int | None] = mapped_column(ForeignKey("encounters.id", ondelete="SET NULL"), index=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     content: Mapped[str] = mapped_column(Text)
     patient: Mapped[Patient] = relationship(back_populates="notes")
+    encounter: Mapped[Encounter | None] = relationship(back_populates="notes")
 
 
 class AppMetadata(Base):

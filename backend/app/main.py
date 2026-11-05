@@ -4,16 +4,17 @@ from contextlib import asynccontextmanager
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
+from fastapi import Depends, FastAPI, HTTPException, Path, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import case, func, select, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from .database import Base, engine
-from .models import Note, Patient, PatientStatus, utc_now
-from .schemas import Dashboard, NoteRead, NoteWrite, PatientPage, PatientRead, PatientSearchResult, PatientSummary, PatientWrite, SearchMatch
-from .search import FUZZY_THRESHOLD, MATCH_LABELS, ensure_search_indexes, ranked_search
+from .database import engine
+from .migrations import require_schema_current
+from .models import Encounter, Note, Patient, PatientStatus, utc_now
+from .schemas import Dashboard, EncounterRead, EncounterWrite, NoteRead, NoteWrite, PatientPage, PatientRead, PatientSearchResult, PatientSummary, PatientWrite, SearchMatch
+from .search import FUZZY_THRESHOLD, MATCH_LABELS, ranked_search
 from .seed import seed_database
 
 
@@ -23,6 +24,7 @@ def get_db(request: Request):
 
 
 DB = Annotated[Session, Depends(get_db)]
+EncounterID = Annotated[int, Path(gt=0, le=2_147_483_647)]
 
 
 def get_patient(session: Session, patient_id: str) -> Patient:
@@ -36,8 +38,18 @@ def get_patient(session: Session, patient_id: str) -> Patient:
     return patient
 
 
-def patient_notes(session: Session, patient_id: str) -> list[Note]:
-    return list(session.scalars(select(Note).where(Note.patient_id == patient_id).order_by(Note.timestamp.desc(), Note.id)))
+def get_encounter(session: Session, patient_id: str, encounter_id: int) -> Encounter:
+    encounter = session.scalar(select(Encounter).where(Encounter.id == encounter_id, Encounter.patient_id == patient_id))
+    if encounter is None:
+        raise HTTPException(status_code=404, detail="Encounter not found")
+    return encounter
+
+
+def patient_notes(session: Session, patient_id: str, encounter_id: int | None = None) -> list[Note]:
+    query = select(Note).where(Note.patient_id == patient_id)
+    if encounter_id is not None:
+        query = query.where(Note.encounter_id == encounter_id)
+    return list(session.scalars(query.order_by(Note.timestamp.desc(), Note.id)))
 
 
 def create_app(db_engine: Engine = engine, seed_enabled: bool | None = None) -> FastAPI:
@@ -46,8 +58,7 @@ def create_app(db_engine: Engine = engine, seed_enabled: bool | None = None) -> 
 
     @asynccontextmanager
     async def lifespan(application: FastAPI):
-        Base.metadata.create_all(db_engine)
-        ensure_search_indexes(db_engine)
+        require_schema_current(db_engine)
         if should_seed:
             with session_factory() as session:
                 seed_database(session)
@@ -55,7 +66,7 @@ def create_app(db_engine: Engine = engine, seed_enabled: bool | None = None) -> 
 
     application = FastAPI(
         title="Ascertain Patient API",
-        description="Patient directory, notes, and deterministic summaries for fictional demo data.",
+        description="Patient directory, encounters, notes, and deterministic summaries for fictional demo data.",
         version="1.0.0",
         lifespan=lifespan,
     )
@@ -163,14 +174,57 @@ def create_app(db_engine: Engine = engine, seed_enabled: bool | None = None) -> 
         session.commit()
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
-    @application.get("/patients/{patient_id}/notes", response_model=list[NoteRead], tags=["Notes"])
-    def list_notes(patient_id: str, session: DB):
+    @application.get("/patients/{patient_id}/encounters", response_model=list[EncounterRead], tags=["Encounters"])
+    def list_encounters(patient_id: str, session: DB):
         patient = get_patient(session, patient_id)
-        return patient_notes(session, patient.id)
+        return list(session.scalars(select(Encounter).where(Encounter.patient_id == patient.id).order_by(Encounter.timestamp.desc(), Encounter.id)))
+
+    @application.post("/patients/{patient_id}/encounters", response_model=EncounterRead, status_code=status.HTTP_201_CREATED, tags=["Encounters"])
+    def create_encounter(patient_id: str, payload: EncounterWrite, session: DB):
+        patient = get_patient(session, patient_id)
+        encounter = Encounter(patient_id=patient.id, **payload.model_dump())
+        session.add(encounter)
+        patient.updated_at = utc_now()
+        session.commit()
+        session.refresh(encounter)
+        return encounter
+
+    @application.get("/patients/{patient_id}/encounters/{encounter_id}", response_model=EncounterRead, tags=["Encounters"])
+    def read_encounter(patient_id: str, encounter_id: EncounterID, session: DB):
+        patient = get_patient(session, patient_id)
+        return get_encounter(session, patient.id, encounter_id)
+
+    @application.put("/patients/{patient_id}/encounters/{encounter_id}", response_model=EncounterRead, tags=["Encounters"])
+    def update_encounter(patient_id: str, encounter_id: EncounterID, payload: EncounterWrite, session: DB):
+        patient = get_patient(session, patient_id)
+        encounter = get_encounter(session, patient.id, encounter_id)
+        for key, value in payload.model_dump().items():
+            setattr(encounter, key, value)
+        patient.updated_at = utc_now()
+        session.commit()
+        session.refresh(encounter)
+        return encounter
+
+    @application.delete("/patients/{patient_id}/encounters/{encounter_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Encounters"])
+    def delete_encounter(patient_id: str, encounter_id: EncounterID, session: DB):
+        patient = get_patient(session, patient_id)
+        session.delete(get_encounter(session, patient.id, encounter_id))
+        patient.updated_at = utc_now()
+        session.commit()
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @application.get("/patients/{patient_id}/notes", response_model=list[NoteRead], tags=["Notes"])
+    def list_notes(patient_id: str, session: DB, encounter_id: int | None = Query(default=None, gt=0, le=2_147_483_647)):
+        patient = get_patient(session, patient_id)
+        if encounter_id is not None:
+            get_encounter(session, patient.id, encounter_id)
+        return patient_notes(session, patient.id, encounter_id)
 
     @application.post("/patients/{patient_id}/notes", response_model=NoteRead, status_code=status.HTTP_201_CREATED, tags=["Notes"])
     def create_note(patient_id: str, payload: NoteWrite, session: DB):
         patient = get_patient(session, patient_id)
+        if payload.encounter_id is not None:
+            get_encounter(session, patient.id, payload.encounter_id)
         note = Note(patient_id=patient.id, **payload.model_dump())
         session.add(note)
         patient.updated_at = utc_now()

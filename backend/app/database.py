@@ -8,6 +8,10 @@ class Base(DeclarativeBase):
     pass
 
 
+def get_database_url() -> str:
+    return os.getenv("DATABASE_URL", "postgresql+psycopg://ascertain:ascertain_dev@localhost:5432/ascertain")
+
+
 def make_engine(url: str):
     # Hosting providers commonly supply the shorter PostgreSQL URL scheme.
     if url.startswith("postgres://"):
@@ -30,4 +34,4 @@ def make_engine(url: str):
     return engine
 
 
-engine = make_engine(os.getenv("DATABASE_URL", "postgresql+psycopg://ascertain:ascertain_dev@localhost:5432/ascertain"))
+engine = make_engine(get_database_url())

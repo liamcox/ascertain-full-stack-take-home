@@ -73,11 +73,35 @@ class PatientPage(BaseModel):
     total_pages: int
 
 
+class EncounterWrite(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    doctor_name: str = Field(min_length=1, max_length=100)
+    reason: str = Field(min_length=1, max_length=10000)
+    timestamp: datetime
+
+    @field_validator("timestamp")
+    @classmethod
+    def normalize_timestamp(cls, value: datetime) -> datetime:
+        normalized = value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+        if normalized > datetime.now(timezone.utc) + timedelta(seconds=60):
+            raise ValueError("Encounter timestamp cannot be in the future")
+        return normalized
+
+
+class EncounterRead(EncounterWrite):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    patient_id: str
+
+
 class NoteWrite(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
     timestamp: datetime
     content: str = Field(min_length=1, max_length=10000)
+    encounter_id: int | None = Field(default=None, gt=0, le=2_147_483_647, strict=True)
 
     @field_validator("timestamp")
     @classmethod
