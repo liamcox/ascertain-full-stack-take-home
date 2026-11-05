@@ -46,6 +46,12 @@ jobs:
         run: python -m pip install -r backend/requirements-dev.txt
       - name: Check backend dependency compatibility
         run: python -m pip check
+      - name: Initialize clean PostgreSQL through Alembic
+        working-directory: backend
+        run: |
+          python -m alembic upgrade head
+          python -m alembic current
+          SEED_DATA=false python -c "from fastapi.testclient import TestClient; from app.main import app; client = TestClient(app); client.__enter__(); assert client.get('/health').json() == {'status': 'ok'}; client.__exit__(None, None, None)"
       - name: Run API tests against isolated PostgreSQL schemas
         working-directory: backend
         run: python -m pytest
