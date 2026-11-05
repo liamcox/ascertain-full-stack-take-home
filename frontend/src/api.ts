@@ -30,9 +30,18 @@ export interface PatientSearchResult extends Patient {
 export interface PatientNote {
   id: string;
   patient_id: string;
+  encounter_id: number | null;
   timestamp: string;
   content: string;
 }
+export interface PatientEncounter {
+  id: number;
+  patient_id: string;
+  doctor_name: string;
+  reason: string;
+  timestamp: string;
+}
+export type EncounterInput = Omit<PatientEncounter, 'id' | 'patient_id'>;
 export interface PatientSummary {
   patient_id: string;
   summary: string;
@@ -116,12 +125,31 @@ export const api = {
   updatePatient: (id: string, patient: PatientInput) =>
     request<Patient>(`/patients/${id}`, { method: 'PUT', body: JSON.stringify(patient) }),
   deletePatient: (id: string) => request<void>(`/patients/${id}`, { method: 'DELETE' }),
-  notes: (id: string, signal?: AbortSignal) =>
-    request<PatientNote[]>(`/patients/${id}/notes`, { signal }),
-  addNote: (id: string, content: string, timestamp: string) =>
+  encounters: (patientId: string, signal?: AbortSignal) =>
+    request<PatientEncounter[]>(`/patients/${patientId}/encounters`, { signal }),
+  encounter: (patientId: string, encounterId: number, signal?: AbortSignal) =>
+    request<PatientEncounter>(`/patients/${patientId}/encounters/${encounterId}`, { signal }),
+  createEncounter: (patientId: string, encounter: EncounterInput) =>
+    request<PatientEncounter>(`/patients/${patientId}/encounters`, {
+      method: 'POST',
+      body: JSON.stringify(encounter),
+    }),
+  updateEncounter: (patientId: string, encounterId: number, encounter: EncounterInput) =>
+    request<PatientEncounter>(`/patients/${patientId}/encounters/${encounterId}`, {
+      method: 'PUT',
+      body: JSON.stringify(encounter),
+    }),
+  deleteEncounter: (patientId: string, encounterId: number) =>
+    request<void>(`/patients/${patientId}/encounters/${encounterId}`, { method: 'DELETE' }),
+  notes: (id: string, signal?: AbortSignal, encounterId?: number) =>
+    request<PatientNote[]>(
+      `/patients/${id}/notes${encounterId === undefined ? '' : `?encounter_id=${encounterId}`}`,
+      { signal },
+    ),
+  addNote: (id: string, content: string, timestamp: string, encounterId?: number | null) =>
     request<PatientNote>(`/patients/${id}/notes`, {
       method: 'POST',
-      body: JSON.stringify({ content, timestamp }),
+      body: JSON.stringify({ content, timestamp, encounter_id: encounterId }),
     }),
   deleteNote: (id: string, noteId: string) =>
     request<void>(`/patients/${id}/notes/${noteId}`, { method: 'DELETE' }),
