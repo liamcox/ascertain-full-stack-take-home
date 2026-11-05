@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.main import create_app
 from app.models import Patient
-from app.search import FUZZY_THRESHOLD, ensure_search_indexes, ranked_search
+from app.search import FUZZY_THRESHOLD, ranked_search
+from app.migrations import upgrade_database
 
 
 def create_patient(client, profile, **changes):
@@ -230,8 +231,8 @@ def test_last_name_prefix_and_normalized_phone_substring_are_searchable(client, 
 
 def test_restart_preserves_records_and_search_index_setup_is_idempotent(client, profile, db_engine):
     patient = create_patient(client, profile)
-    ensure_search_indexes(db_engine)
-    ensure_search_indexes(db_engine)
+    upgrade_database(db_engine)
+    upgrade_database(db_engine)
     with TestClient(create_app(db_engine, seed_enabled=False)) as restarted:
         assert search(restarted, "avery")["items"][0]["id"] == patient["id"]
 
