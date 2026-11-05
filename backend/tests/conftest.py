@@ -11,10 +11,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.database import make_engine  # noqa: E402
 from app.main import create_app  # noqa: E402
+from app.migrations import upgrade_database  # noqa: E402
 
 
 @pytest.fixture
-def db_engine(tmp_path):
+def empty_db_engine(tmp_path):
     postgres_url = os.getenv("TEST_DATABASE_URL")
     if postgres_url:
         # PostgreSQL integration runs use a unique schema per test, preserving
@@ -34,6 +35,12 @@ def db_engine(tmp_path):
         engine = make_engine(f"sqlite:///{tmp_path / 'test.db'}")
         yield engine
         engine.dispose()
+
+
+@pytest.fixture
+def db_engine(empty_db_engine):
+    upgrade_database(empty_db_engine)
+    return empty_db_engine
 
 
 @pytest.fixture
